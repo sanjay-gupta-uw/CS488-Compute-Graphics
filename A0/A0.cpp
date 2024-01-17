@@ -16,7 +16,6 @@ using namespace std;
 
 const float PI = 3.14159265f;
 
-
 //----------------------------------------------------------------------------------------
 // Constructor
 A0::A0()
@@ -27,14 +26,12 @@ A0::A0()
 	  m_mouse_GL_coordinate(dvec2(0.0)),
 	  m_mouseButtonActive(false)
 {
-
 }
 
 //----------------------------------------------------------------------------------------
 // Destructor
 A0::~A0()
 {
-
 }
 
 //----------------------------------------------------------------------------------------
@@ -59,8 +56,8 @@ void A0::init()
 void A0::createShaderProgram()
 {
 	m_shader.generateProgramObject();
-	m_shader.attachVertexShader( getAssetFilePath("VertexShader.vs").c_str() );
-	m_shader.attachFragmentShader( getAssetFilePath("FragmentShader.fs").c_str() );
+	m_shader.attachVertexShader(getAssetFilePath("VertexShader.vs").c_str());
+	m_shader.attachFragmentShader(getAssetFilePath("FragmentShader.fs").c_str());
 	m_shader.link();
 }
 
@@ -71,7 +68,7 @@ void A0::enableVertexAttribIndices()
 	glBindVertexArray(m_vao_triangle);
 
 	// Enable the attribute index location for "position" when rendering.
-	GLint positionAttribLocation = m_shader.getAttribLocation( "position" );
+	GLint positionAttribLocation = m_shader.getAttribLocation("position");
 	glEnableVertexAttribArray(positionAttribLocation);
 
 	// Restore defaults
@@ -90,19 +87,19 @@ void A0::uploadTriangleDataToVbo()
 		// Construct equalaterial triangle
 		vec3(0.25f, 0.0f, 0.0f),
 		vec3(0.25f, half_sqrt3 * 0.5f, 0.0),
-		vec3(0.5f, 0.0f, 0.0f)
-	};
+		vec3(0.5f, 0.0f, 0.0f)};
 
 	// Construct triangle centroid and move vertices so triangle is centered at origin
 	vec3 centroid(0.0f);
-	for(const vec3 & v : triangleVertices) {
+	for (const vec3 &v : triangleVertices)
+	{
 		centroid += v;
 	}
 	centroid /= 3.0f;
-	for(vec3 & v : triangleVertices) {
+	for (vec3 &v : triangleVertices)
+	{
 		v -= centroid;
 	}
-
 
 	// Generate a vertex buffer object to hold the triangle's vertex data.
 	glGenBuffers(1, &m_vbo_triangle);
@@ -110,8 +107,7 @@ void A0::uploadTriangleDataToVbo()
 	//-- Upload triangle vertex data to the vertex buffer:
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbo_triangle);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(triangleVertices), triangleVertices,
-			GL_STATIC_DRAW);
-
+				 GL_STATIC_DRAW);
 
 	// Unbind the target GL_ARRAY_BUFFER, now that we are finished using it.
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -131,7 +127,7 @@ void A0::mapVboDataToShaderAttributeLocation()
 	// that "m_vao_triangle" captures the data mapping issued by the call to
 	// glVertexAttribPointer(...).
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbo_triangle);
-	GLint positionAttribLocation = m_shader.getAttribLocation( "position" );
+	GLint positionAttribLocation = m_shader.getAttribLocation("position");
 	glVertexAttribPointer(positionAttribLocation, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
 	//-- Unbind target, and restore default values:
@@ -145,21 +141,21 @@ void A0::mapVboDataToShaderAttributeLocation()
 void A0::uploadUniformsToShader()
 {
 	m_shader.enable();
-		// Query the shader program for the location number of the uniform named "color".
-		GLint uniformLocation_colour = m_shader.getUniformLocation("colour");
+	// Query the shader program for the location number of the uniform named "color".
+	GLint uniformLocation_colour = m_shader.getUniformLocation("colour");
 
-		// Set the uniform's value.
-		glUniform3f(uniformLocation_colour, m_shape_color.r, m_shape_color.g,
+	// Set the uniform's value.
+	glUniform3f(uniformLocation_colour, m_shape_color.r, m_shape_color.g,
 				m_shape_color.b);
 
-		vec3 z_axis(0.0f,0.0f,1.0f);
-		mat4 transform = glm::translate(mat4(), vec3(m_shape_translation, 0.0f));
-		transform *= glm::scale(mat4(), vec3(m_shape_size));
-		transform *= glm::rotate(mat4(), m_shape_rotation, z_axis);
+	vec3 z_axis(0.0f, 0.0f, 1.0f);
+	mat4 transform = glm::translate(mat4(), vec3(m_shape_translation, 0.0f));
+	transform *= glm::scale(mat4(), vec3(m_shape_size));
+	transform *= glm::rotate(mat4(), m_shape_rotation, z_axis);
 
-		GLint uniformLocation_modelMatrix = m_shader.getUniformLocation("transform");
-		glUniformMatrix4fv(uniformLocation_modelMatrix, 1, GL_FALSE,
-				glm::value_ptr(transform));
+	GLint uniformLocation_modelMatrix = m_shader.getUniformLocation("transform");
+	glUniformMatrix4fv(uniformLocation_modelMatrix, 1, GL_FALSE,
+					   glm::value_ptr(transform));
 
 	m_shader.disable();
 
@@ -174,11 +170,18 @@ void A0::appLogic()
 {
 	// Place per frame, application logic here ...
 
-
 	// Clamp shape size to be within a reasonable range
 	m_shape_size = glm::clamp(m_shape_size, 0.0f, 10.0f);
 
 	uploadUniformsToShader();
+}
+
+void A0::resetShape()
+{
+	m_shape_color = glm::vec3(1.0f, 1.0f, 1.0f);
+	m_shape_translation = vec2(0.0f);
+	m_shape_size = 1.0f;
+	m_shape_rotation = 0.0f;
 }
 
 //----------------------------------------------------------------------------------------
@@ -188,7 +191,8 @@ void A0::appLogic()
 void A0::guiLogic()
 {
 	static bool firstRun(true);
-	if (firstRun) {
+	if (firstRun)
+	{
 		ImGui::SetNextWindowPos(ImVec2(50, 50));
 		firstRun = false;
 	}
@@ -197,22 +201,29 @@ void A0::guiLogic()
 	ImGuiWindowFlags windowFlags(ImGuiWindowFlags_AlwaysAutoResize);
 	float opacity(0.5f);
 
-	ImGui::Begin("Shape Properties", &showDebugWindow, ImVec2(100,100), opacity,
-			windowFlags);
-		// Retrieve red color component from slider and store in the first element of
-		// m_shape_color.
-		ImGui::SliderFloat("Red Channel", &m_shape_color.r, 0.0f, 1.0f);
+	ImGui::Begin("Shape Properties", &showDebugWindow, ImVec2(100, 100), opacity,
+				 windowFlags);
 
+	// Create Button, and check if it was clicked:
+	if (ImGui::Button("Quit Application"))
+	{
+		glfwSetWindowShouldClose(m_window, GL_TRUE);
+	}
 
-		// Add more gui elements here here ...
+	if (ImGui::Button("Reset"))
+	{
+		resetShape();
+	}
+	// Retrieve red color component from slider and store in the first element of
+	// m_shape_color.
+	ImGui::SliderFloat("Red Channel", &m_shape_color.r, 0.0f, 1.0f);
+	ImGui::SliderFloat("Green Channel", &m_shape_color.g, 0.0f, 1.0f);
+	ImGui::SliderFloat("Blue Channel", &m_shape_color.b, 0.0f, 1.0f);
 
+	// Rotation Slider
+	ImGui::SliderFloat("Rotation Slider", &m_shape_rotation, 0.0, 2 * PI);
 
-		// Create Button, and check if it was clicked:
-		if( ImGui::Button( "Quit Application" ) ) {
-			glfwSetWindowShouldClose(m_window, GL_TRUE);
-		}
-
-		ImGui::Text( "Framerate: %.1f FPS", ImGui::GetIO().Framerate );
+	ImGui::Text("Framerate: %.1f FPS", ImGui::GetIO().Framerate);
 
 	ImGui::End();
 }
@@ -226,9 +237,8 @@ void A0::draw()
 	glBindVertexArray(m_vao_triangle);
 
 	m_shader.enable();
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+	glDrawArrays(GL_TRIANGLES, 0, 3);
 	m_shader.disable();
-
 
 	// Restore defaults
 	glBindVertexArray(0);
@@ -242,16 +252,15 @@ void A0::draw()
  */
 void A0::cleanup()
 {
-
 }
 
 //----------------------------------------------------------------------------------------
 /*
  * Event handler.  Handles cursor entering the window area events.
  */
-bool A0::cursorEnterWindowEvent (
-		int entered
-) {
+bool A0::cursorEnterWindowEvent(
+	int entered)
+{
 	bool eventHandled(false);
 
 	// Fill in with event handling code...
@@ -263,18 +272,19 @@ bool A0::cursorEnterWindowEvent (
 /*
  * Event handler.  Handles mouse cursor movement events.
  */
-bool A0::mouseMoveEvent(double xPos, double yPos) {
+bool A0::mouseMoveEvent(double xPos, double yPos)
+{
 	bool eventHandled(false);
 
 	// Fill in with event handling code...
 
 	// Translate current mouse position to GL coordinates:
-	m_mouse_GL_coordinate = vec2 (
-			(2.0f * xPos) / m_windowWidth - 1.0f,
-			1.0f - ( (2.0f * yPos) / m_windowHeight)
-	);
+	m_mouse_GL_coordinate = vec2(
+		(2.0f * xPos) / m_windowWidth - 1.0f,
+		1.0f - ((2.0f * yPos) / m_windowHeight));
 
-	if (m_mouseButtonActive) {
+	if (m_mouseButtonActive)
+	{
 		m_shape_translation = m_mouse_GL_coordinate;
 	}
 
@@ -285,19 +295,23 @@ bool A0::mouseMoveEvent(double xPos, double yPos) {
 /*
  * Event handler.  Handles mouse button events.
  */
-bool A0::mouseButtonInputEvent(int button, int actions, int mods) {
+bool A0::mouseButtonInputEvent(int button, int actions, int mods)
+{
 	bool eventHandled(false);
 
 	// Fill in with event handling code...
 
-	if (actions == GLFW_PRESS) {
-		if (!ImGui::IsMouseHoveringAnyWindow()) {
+	if (actions == GLFW_PRESS)
+	{
+		if (!ImGui::IsMouseHoveringAnyWindow())
+		{
 			m_mouseButtonActive = true;
 			m_shape_translation = m_mouse_GL_coordinate;
 		}
 	}
 
-	if (actions == GLFW_RELEASE) {
+	if (actions == GLFW_RELEASE)
+	{
 		m_mouseButtonActive = false;
 	}
 
@@ -308,7 +322,8 @@ bool A0::mouseButtonInputEvent(int button, int actions, int mods) {
 /*
  * Event handler.  Handles mouse scroll wheel events.
  */
-bool A0::mouseScrollEvent(double xOffSet, double yOffSet) {
+bool A0::mouseScrollEvent(double xOffSet, double yOffSet)
+{
 	bool eventHandled(false);
 
 	// Fill in with event handling code...
@@ -320,7 +335,8 @@ bool A0::mouseScrollEvent(double xOffSet, double yOffSet) {
 /*
  * Event handler.  Handles window resize events.
  */
-bool A0::windowResizeEvent(int width, int height) {
+bool A0::windowResizeEvent(int width, int height)
+{
 	bool eventHandled(false);
 
 	// Fill in with event handling code...
@@ -332,26 +348,42 @@ bool A0::windowResizeEvent(int width, int height) {
 /*
  * Event handler.  Handles key input events.
  */
-bool A0::keyInputEvent(int key, int action, int mods) {
+bool A0::keyInputEvent(int key, int action, int mods)
+{
 	bool eventHandled(false);
 
-	if (action == GLFW_PRESS) {
-		if (key == GLFW_KEY_EQUAL) {
+	if (action == GLFW_PRESS)
+	{
+		if (key == GLFW_KEY_EQUAL)
+		{
 			cout << "+ key pressed" << endl;
+			m_shape_size *= 1.25;
 
 			// TODO - increase shape size.
 
 			eventHandled = true;
 		}
-		if (key == GLFW_KEY_MINUS) {
+		if (key == GLFW_KEY_MINUS)
+		{
 			cout << "- key pressed" << endl;
-
+			m_shape_size *= 0.80;
 			// TODO - decrease shape size.
 
 			eventHandled = true;
 		}
+		else if (key == GLFW_KEY_Q)
+		{
+			cout << "Q key pressed" << endl;
+			glfwSetWindowShouldClose(m_window, GL_TRUE);
+			eventHandled = true;
+		}
+		else if (key == GLFW_KEY_R)
+		{
+			cout << "R key pressed" << endl;
+			resetShape();
+			eventHandled = true;
+		}
 	}
-
 
 	return eventHandled;
 }

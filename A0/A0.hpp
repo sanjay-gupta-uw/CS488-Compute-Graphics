@@ -8,7 +8,8 @@
 
 #include <glm/glm.hpp>
 
-class A0 : public CS488Window {
+class A0 : public CS488Window
+{
 public:
 	A0();
 	virtual ~A0();
@@ -27,6 +28,7 @@ protected:
 	virtual bool windowResizeEvent(int width, int height) override;
 	virtual bool keyInputEvent(int key, int action, int mods) override;
 
+	void resetShape();
 	void createShaderProgram();
 	void enableVertexAttribIndices();
 	void uploadTriangleDataToVbo();
