@@ -10,7 +10,8 @@
 
 #include "maze.hpp"
 
-class A1 : public CS488Window {
+class A1 : public CS488Window
+{
 public:
 	A1();
 	virtual ~A1();
@@ -31,13 +32,17 @@ protected:
 
 private:
 	void initGrid();
+	void dig();
 
 	// Fields related to the shader and uniforms.
 	ShaderProgram m_shader;
-	GLint P_uni; // Uniform location for Projection matrix.
-	GLint V_uni; // Uniform location for View matrix.
-	GLint M_uni; // Uniform location for Model matrix.
-	GLint col_uni;   // Uniform location for cube colour.
+	GLint P_uni;   // Uniform location for Projection matrix.
+	GLint V_uni;   // Uniform location for View matrix.
+	GLint M_uni;   // Uniform location for Model matrix.
+	GLint col_uni; // Uniform location for cube colour.
+	GLint scale_uniform;
+	GLuint offsetAttrib;
+	GLint posAttrib;
 
 	// Fields related to grid geometry.
 	GLuint m_grid_vao; // Vertex Array Object
@@ -49,4 +54,9 @@ private:
 
 	float colour[3];
 	int current_col;
+	int num_cubes;
+	Maze *maze;
+	bool dug;
+
+	float m_scale;
 };
