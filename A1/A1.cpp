@@ -71,7 +71,7 @@ vec3 cube[36] = {
 	vertices[faces[10][0]], vertices[faces[10][1]], vertices[faces[10][2]], // Triangle 1
 	vertices[faces[11][0]], vertices[faces[11][1]], vertices[faces[11][2]], // Triangle 2
 };
-
+vector<glm::vec3> avatar_vertices;
 //----------------------------------------------------------------------------------------
 // Constructor
 A1::A1()
@@ -96,16 +96,11 @@ A1::~A1()
  */
 void A1::init()
 {
+	Icosphere sphere;
+	sphere.generateIcosphere(0);
+	avatar_vertices = sphere.vertices;
 	unsigned int radius = 1;
-	// Assuming Sphere is a class with a constructor that takes an unsigned int for the radius
-	Sphere *sp = new Sphere();
 
-	vector<vec3> icosahedronVertices = sp->createIcosahedronVertices();
-	for (auto &vertex : icosahedronVertices)
-	{
-		cout << vertex.x << " " << vertex.y << " " << vertex.z << endl;
-	}
-	exit(0);
 	// Initialize random number generator
 	int rseed = getpid();
 	srandom(rseed);
@@ -155,7 +150,6 @@ void A1::init()
 void A1::initGrid()
 {
 	// size_t sz = 3 * 2 * 2 * (DIM + 3);
-
 	for (int x = 0; x < DIM; ++x)
 	{
 		for (int y = 0; y < DIM; ++y)
@@ -446,6 +440,7 @@ bool A1::keyInputEvent(int key, int action, int mods)
 			dig();
 			eventHandled = true;
 		}
+		// add 0 check(lower/upper bound)
 		if (key == GLFW_KEY_SPACE)
 		{
 			cout << "SPACE key pressed" << endl;

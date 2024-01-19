@@ -1,4 +1,4 @@
-#include "glm/glm.hpp"
+#include <glm/glm.hpp>
 #include <vector>
 #include <unordered_map>
 #include <iostream>
@@ -20,6 +20,7 @@ struct PairHash
 
 class Icosphere
 {
+public:
   std::vector<glm::vec3> vertices;
   int index = -1;
   std::unordered_map<std::pair<int, int>, int, PairHash> hash_table;

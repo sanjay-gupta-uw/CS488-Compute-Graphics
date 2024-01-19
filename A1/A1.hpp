@@ -48,6 +48,9 @@ private:
 	GLuint m_grid_vao; // Vertex Array Object
 	GLuint m_grid_vbo; // Vertex Buffer Object
 
+	GLuint m_avatar_vao;
+	GLuint m_avatar_vbo;
+
 	// Matrices controlling the camera and projection.
 	glm::mat4 proj;
 	glm::mat4 view;
