@@ -2,13 +2,12 @@
 #include <vector>
 #include <map>
 #include <iostream>
-
+int count = 0;
 struct Triangle
 {
   int v1, v2, v3;
   Triangle(int v1, int v2, int v3) : v1(v1), v2(v2), v3(v3) {}
 };
-int count = 0;
 
 class Icosphere
 {
@@ -32,10 +31,7 @@ public:
     std::pair<int, int> key = (v1 <= v2) ? std::make_pair(v1, v2) : std::make_pair(v2, v1);
 
     if (hash_table.find(key) != hash_table.end())
-    {
-      std::cout << "found in hash table" << std::endl;
       return hash_table[key];
-    }
 
     glm::vec3 vert1 = vertices[v1];
     glm::vec3 vert2 = vertices[v2];
@@ -45,9 +41,9 @@ public:
     float z = (vert1.z + vert2.z) / 2.0;
 
     int idx = addVertex(x, y, z);
+    count++;
 
     hash_table[key] = idx;
-    count += 1;
     return idx;
   }
 
@@ -125,8 +121,9 @@ public:
       faces_vertices.push_back(vertices[triangle.v2]);
       faces_vertices.push_back(vertices[triangle.v3]);
     }
+
     std::cout << "Total Vertices: " << vertices.size() << std::endl;
-    count = count / 2;
+    // count = count / 2;
     std::cout << "added " << count << " vertices; total: " << 12 + count << std::endl;
   }
   void printVertices()
