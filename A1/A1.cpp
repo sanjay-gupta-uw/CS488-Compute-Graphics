@@ -97,7 +97,7 @@ A1::~A1()
 void A1::init()
 {
 	Icosphere sphere;
-	sphere.generateIcosphere(3);
+	sphere.generateIcosphere(0);
 	avatar_vertices = sphere.faces_vertices;
 
 	// Initialize random number generator
