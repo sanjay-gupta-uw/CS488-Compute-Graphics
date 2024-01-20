@@ -2,7 +2,7 @@
 #include <vector>
 #include <map>
 #include <iostream>
-
+int count = 0;
 struct Triangle
 {
   int v1, v2, v3;
@@ -41,6 +41,7 @@ public:
     float z = (vert1.z + vert2.z) / 2.0;
 
     int idx = addVertex(x, y, z);
+    count++;
 
     hash_table[key] = idx;
     return idx;
@@ -120,9 +121,9 @@ public:
       faces_vertices.push_back(vertices[triangle.v2]);
       faces_vertices.push_back(vertices[triangle.v3]);
     }
-    int count = 0;
+
     std::cout << "Total Vertices: " << vertices.size() << std::endl;
-    count = count / 2;
+    // count = count / 2;
     std::cout << "added " << count << " vertices; total: " << 12 + count << std::endl;
   }
   void printVertices()
