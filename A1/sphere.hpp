@@ -1,6 +1,6 @@
 #include <glm/glm.hpp>
 #include <vector>
-#include <unordered_map>
+#include <map>
 #include <iostream>
 
 struct Triangle
@@ -8,22 +8,15 @@ struct Triangle
   int v1, v2, v3;
   Triangle(int v1, int v2, int v3) : v1(v1), v2(v2), v3(v3) {}
 };
-struct PairHash
-{
-  size_t operator()(const std::pair<int, int> &p) const
-  {
-    auto hash1 = std::hash<int>{}(p.first);
-    auto hash2 = std::hash<int>{}(p.second);
-    return hash1 ^ (hash2 << 1); // Left shift hash2 before XOR
-  }
-};
+int count = 0;
 
 class Icosphere
 {
 public:
   std::vector<glm::vec3> vertices;
+  std::vector<glm::vec3> faces_vertices;
   int index = -1;
-  std::unordered_map<std::pair<int, int>, int, PairHash> hash_table;
+  std::map<std::pair<int, int>, int> hash_table;
 
   // fix position of vertex to be on unit sphere, return index
   int addVertex(float x, float y, float z)
@@ -36,7 +29,14 @@ public:
   // return index of point in the middle of p1 and p2
   int getMiddlePoint(int v1, int v2)
   {
-    std::pair<int, int> key = std::pair<int, int>((v1 <= v2) ? v1 : v2, (v1 <= v2) ? v2 : v1);
+    std::pair<int, int> key = (v1 <= v2) ? std::make_pair(v1, v2) : std::make_pair(v2, v1);
+
+    if (hash_table.find(key) != hash_table.end())
+    {
+      std::cout << "found in hash table" << std::endl;
+      return hash_table[key];
+    }
+
     glm::vec3 vert1 = vertices[v1];
     glm::vec3 vert2 = vertices[v2];
 
@@ -44,36 +44,33 @@ public:
     float y = (vert1.y + vert2.y) / 2.0;
     float z = (vert1.z + vert2.z) / 2.0;
 
-    if (hash_table.find(key) != hash_table.end())
-    {
-      int idx = hash_table[key];
-      float length = glm::sqrt(x * x + y * y + z * z);
-      glm::vec3 candidate = vertices[idx];
-      if (abs(candidate.x - (x / length)) < 0.001 && abs(candidate.y - (y / length)) < 0.001 && abs(candidate.z - (z / length)) < 0.001)
-        return idx;
-    }
-
     int idx = addVertex(x, y, z);
 
     hash_table[key] = idx;
+    count += 1;
     return idx;
   }
 
 public:
   void generateIcosphere(int recursionLevel)
   {
+
     // create 12 vertices of a icosahedron
     const float phi = (1.0 + glm::sqrt(5.0)) / 2.0;
+    addVertex(-1, phi, 0);
+    addVertex(1, phi, 0);
+    addVertex(-1, -phi, 0);
+    addVertex(1, -phi, 0);
 
     addVertex(0, -1, phi);
-    addVertex(0, -1, -phi);
     addVertex(0, 1, phi);
+    addVertex(0, -1, -phi);
     addVertex(0, 1, -phi);
 
-    addVertex(-1, phi, 0);
-    addVertex(-1, -phi, 0);
-    addVertex(1, phi, 0);
-    addVertex(1, -phi, 0);
+    addVertex(phi, 0, -1);
+    addVertex(phi, 0, 1);
+    addVertex(-phi, 0, -1);
+    addVertex(-phi, 0, 1);
 
     std::vector<Triangle> faces;
 
@@ -97,6 +94,7 @@ public:
     faces.emplace_back(6, 2, 10);
     faces.emplace_back(8, 6, 7);
     faces.emplace_back(9, 8, 1);
+    int k = 0;
 
     for (int i = 0; i < recursionLevel; i++)
     {
@@ -104,25 +102,40 @@ public:
       for (auto triangle : faces)
       {
         // recursive step, split triangle into 4 smaller triangles
+        // std::cout << "processing: " << triangle.v1 << " " << triangle.v2 << " " << triangle.v3 << std::endl;
         int a = getMiddlePoint(triangle.v1, triangle.v2);
         int b = getMiddlePoint(triangle.v2, triangle.v3);
         int c = getMiddlePoint(triangle.v3, triangle.v1);
 
+        // std::cout << "new vertices: " << a << " " << b << " " << c << std::endl;
         new_faces.emplace_back(triangle.v1, a, c);
         new_faces.emplace_back(a, triangle.v2, b);
         new_faces.emplace_back(c, b, triangle.v3);
         new_faces.emplace_back(a, b, c);
+        ++k;
+        // if (k > 10)
+        //   break;
       }
       faces = new_faces;
     }
+    // std::cout << "processed " << k << " faces." << std::endl;
+    for (auto triangle : faces)
+    {
+      faces_vertices.push_back(vertices[triangle.v1]);
+      faces_vertices.push_back(vertices[triangle.v2]);
+      faces_vertices.push_back(vertices[triangle.v3]);
+    }
+    std::cout << "Total Vertices: " << vertices.size() << std::endl;
+    count = count / 2;
+    std::cout << "added " << count << " vertices; total: " << 12 + count << std::endl;
   }
   void printVertices()
   {
     std::cout << vertices.size() << std::endl;
-    // for (auto vert : vertices)
-    // {
-    //   std::cout << vert.x << " " << vert.y << " " << vert.z << std::endl;
-    // }
+    for (auto vert : vertices)
+    {
+      std::cout << vert.x << " " << vert.y << " " << vert.z << std::endl;
+    }
   }
 };
 

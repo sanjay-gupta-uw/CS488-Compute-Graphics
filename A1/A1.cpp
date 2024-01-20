@@ -97,9 +97,8 @@ A1::~A1()
 void A1::init()
 {
 	Icosphere sphere;
-	sphere.generateIcosphere(0);
-	avatar_vertices = sphere.vertices;
-	unsigned int radius = 1;
+	sphere.generateIcosphere(3);
+	avatar_vertices = sphere.faces_vertices;
 
 	// Initialize random number generator
 	int rseed = getpid();
@@ -207,6 +206,30 @@ void A1::initGrid()
 
 	// OpenGL has the buffer now, there's no need for us to keep a copy.
 	// delete[] verts;
+	vec3 vertices[avatar_vertices.size()];
+	for (int i = 0; i < avatar_vertices.size(); i++)
+	{
+		vertices[i] = avatar_vertices[i];
+	}
+	glGenVertexArrays(1, &m_avatar_vao);
+	glBindVertexArray(m_avatar_vao);
+
+	// Create the cube vertex buffer
+	glGenBuffers(1, &m_avatar_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, m_avatar_vbo);
+	glBufferData(GL_ARRAY_BUFFER, avatar_vertices.size() * sizeof(vec3),
+				 vertices, GL_STATIC_DRAW);
+
+	// Specify the means of extracting the position values properly.
+	GLint posAttrib = m_shader.getAttribLocation("position");
+	glEnableVertexAttribArray(posAttrib);
+	glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+	// Reset state to prevent rogue code from messing with *my*
+	// stuff!
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	CHECK_GL_ERRORS;
 }
 
@@ -310,16 +333,17 @@ void A1::draw()
 	glUniformMatrix4fv(M_uni, 1, GL_FALSE, value_ptr(W));
 
 	// Just draw the grid for now.
-	glBindVertexArray(m_grid_vao);
-	// glUniform3f(col_uni, 1, 1, 1);
-	// // glDrawArrays(GL_LINES, 0, (3 + DIM) * 4);
-	// glDrawArrays(GL_LINES, 0, (3 + DIM) * (3 + DIM) * 36);
 
+	// glBindVertexArray(m_grid_vao);
+	// glDrawArraysInstanced(GL_LINES, 0, 36, num_cubes);
+
+	glBindVertexArray(m_avatar_vao);
+	glUniform3f(col_uni, 1, 1, 1);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glDrawArraysInstanced(GL_LINES, 0, 36, num_cubes);
+	glDrawArrays(GL_TRIANGLES, 0, avatar_vertices.size());
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-	glUniform1f(scale_uniform, m_scale);
+	// glUniform1f(scale_uniform, m_scale);
 
 	// Draw the cubes
 	// Highlight the active square.clear
