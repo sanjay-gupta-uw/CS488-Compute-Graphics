@@ -14,61 +14,63 @@
 class A1 : public CS488Window
 {
 public:
-	A1();
-	virtual ~A1();
+  A1();
+  virtual ~A1();
 
 protected:
-	virtual void init() override;
-	virtual void appLogic() override;
-	virtual void guiLogic() override;
-	virtual void draw() override;
-	virtual void cleanup() override;
+  virtual void init() override;
+  virtual void appLogic() override;
+  virtual void guiLogic() override;
+  virtual void draw() override;
+  virtual void cleanup() override;
 
-	virtual bool cursorEnterWindowEvent(int entered) override;
-	virtual bool mouseMoveEvent(double xPos, double yPos) override;
-	virtual bool mouseButtonInputEvent(int button, int actions, int mods) override;
-	virtual bool mouseScrollEvent(double xOffSet, double yOffSet) override;
-	virtual bool windowResizeEvent(int width, int height) override;
-	virtual bool keyInputEvent(int key, int action, int mods) override;
+  virtual bool cursorEnterWindowEvent(int entered) override;
+  virtual bool mouseMoveEvent(double xPos, double yPos) override;
+  virtual bool mouseButtonInputEvent(int button, int actions, int mods) override;
+  virtual bool mouseScrollEvent(double xOffSet, double yOffSet) override;
+  virtual bool windowResizeEvent(int width, int height) override;
+  virtual bool keyInputEvent(int key, int action, int mods) override;
 
 private:
-	void initGrid();
-	void dig();
+  void initGrid();
+  void reset();
+  void dig();
+  void initializeCubes();
+  bool valid_move(char direction);
 
-	// Fields related to the shader and uniforms.
-	ShaderProgram m_shader;
-	GLint P_uni;   // Uniform location for Projection matrix.
-	GLint V_uni;   // Uniform location for View matrix.
-	GLint M_uni;   // Uniform location for Model matrix.
-	GLint col_uni; // Uniform location for cube colour.
-	GLint scale_uniform;
-	GLint avatar;
-	GLuint offsetAttrib;
-	GLuint avatar_offsetAttrib;
-	GLint posAttrib;
+  // Fields related to the shader and uniforms.
+  ShaderProgram m_shader;
+  GLint P_uni;   // Uniform location for Projection matrix.
+  GLint V_uni;   // Uniform location for View matrix.
+  GLint M_uni;   // Uniform location for Model matrix.
+  GLint col_uni; // Uniform location for cube colour.
+  GLint scale_uniform;
+  GLint avatar;
+  GLuint offsetAttrib;
+  GLuint avatar_offsetAttrib;
+  GLint posAttrib;
 
-	// Fields related to grid geometry.
-	GLuint m_grid_vao; // Vertex Array Object
-	GLuint m_grid_vbo; // Vertex Buffer Object
+  // Fields related to grid geometry.
+  GLuint m_grid_vao; // Vertex Array Object
+  GLuint m_grid_vbo; // Vertex Buffer Object
 
-	GLuint m_maze_vao;
-	GLuint m_maze_vbo;
+  GLuint m_maze_vao;
+  GLuint m_maze_vbo;
 
-	GLuint m_avatar_vao;
-	GLuint m_avatar_vbo;
+  GLuint m_avatar_vao;
+  GLuint m_avatar_vbo;
 
-	// Matrices controlling the camera and projection.
-	glm::mat4 proj;
-	glm::mat4 view;
+  // Matrices controlling the camera and projection.
+  glm::mat4 proj;
+  glm::mat4 view;
 
-	float colour[3];
-	int current_col;
-	int num_cubes;
-	Maze *maze;
-	bool dug;
-	float avatar_pos[2];
-	float m_scale;
-	std::vector<std::vector<int>> maze_matrix;
-	bool valid_move(char direction);
-	glm::vec2 avatar_cell;
+  float colour[3];
+  int current_col;
+  int num_cubes;
+  Maze *maze;
+  bool dug;
+  float avatar_pos[2];
+  float m_scale;
+  std::vector<std::vector<int>> maze_matrix;
+  glm::vec2 avatar_cell;
 };

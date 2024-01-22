@@ -20,68 +20,68 @@ using namespace std;
 static const size_t DIM = 16;
 
 vec3 vertices[8] = {
-	vec3(-0.5, 0, -0.5),
-	vec3(-0.5, 0, 0.5),
-	vec3(-0.5, 1, -0.5),
-	vec3(-0.5, 1, 0.5),
-	vec3(0.5, 0, -0.5),
-	vec3(0.5, 0, 0.5),
-	vec3(0.5, 1, -0.5),
-	vec3(0.5, 1, 0.5)};
+    vec3(-0.5, 0, -0.5),
+    vec3(-0.5, 0, 0.5),
+    vec3(-0.5, 1, -0.5),
+    vec3(-0.5, 1, 0.5),
+    vec3(0.5, 0, -0.5),
+    vec3(0.5, 0, 0.5),
+    vec3(0.5, 1, -0.5),
+    vec3(0.5, 1, 0.5)};
 
 // Define each face of the cube (2 triangles per face)
 unsigned int faces[12][3] = {
-	// middle index is shared between triangles
-	{0, 1, 2},
-	{2, 1, 3}, // Front face
-	{4, 6, 5},
-	{5, 6, 7}, // Back face
-	{0, 2, 4},
-	{4, 2, 6}, // Left face
-	{1, 5, 3},
-	{3, 5, 7}, // Right face
-	{2, 3, 6},
-	{6, 3, 7}, // Top face
-	{0, 4, 1},
-	{1, 4, 5} // Bottom face
+    // middle index is shared between triangles
+    {0, 1, 2},
+    {2, 1, 3}, // Front face
+    {4, 6, 5},
+    {5, 6, 7}, // Back face
+    {0, 2, 4},
+    {4, 2, 6}, // Left face
+    {1, 5, 3},
+    {3, 5, 7}, // Right face
+    {2, 3, 6},
+    {6, 3, 7}, // Top face
+    {0, 4, 1},
+    {1, 4, 5} // Bottom face
 };
 
 vec3 cube[36] = {
-	// Front face
-	vertices[faces[0][0]], vertices[faces[0][1]], vertices[faces[0][2]], // Triangle 1
-	vertices[faces[1][0]], vertices[faces[1][1]], vertices[faces[1][2]], // Triangle 2
+    // Front face
+    vertices[faces[0][0]], vertices[faces[0][1]], vertices[faces[0][2]], // Triangle 1
+    vertices[faces[1][0]], vertices[faces[1][1]], vertices[faces[1][2]], // Triangle 2
 
-	// Back face
-	vertices[faces[2][0]], vertices[faces[2][1]], vertices[faces[2][2]], // Triangle 1
-	vertices[faces[3][0]], vertices[faces[3][1]], vertices[faces[3][2]], // Triangle 2
+    // Back face
+    vertices[faces[2][0]], vertices[faces[2][1]], vertices[faces[2][2]], // Triangle 1
+    vertices[faces[3][0]], vertices[faces[3][1]], vertices[faces[3][2]], // Triangle 2
 
-	// Left face
-	vertices[faces[4][0]], vertices[faces[4][1]], vertices[faces[4][2]], // Triangle 1
-	vertices[faces[5][0]], vertices[faces[5][1]], vertices[faces[5][2]], // Triangle 2
+    // Left face
+    vertices[faces[4][0]], vertices[faces[4][1]], vertices[faces[4][2]], // Triangle 1
+    vertices[faces[5][0]], vertices[faces[5][1]], vertices[faces[5][2]], // Triangle 2
 
-	// Right face
-	vertices[faces[6][0]], vertices[faces[6][1]], vertices[faces[6][2]], // Triangle 1
-	vertices[faces[7][0]], vertices[faces[7][1]], vertices[faces[7][2]], // Triangle 2
+    // Right face
+    vertices[faces[6][0]], vertices[faces[6][1]], vertices[faces[6][2]], // Triangle 1
+    vertices[faces[7][0]], vertices[faces[7][1]], vertices[faces[7][2]], // Triangle 2
 
-	// Top face
-	vertices[faces[8][0]], vertices[faces[8][1]], vertices[faces[8][2]], // Triangle 1
-	vertices[faces[9][0]], vertices[faces[9][1]], vertices[faces[9][2]], // Triangle 2
+    // Top face
+    vertices[faces[8][0]], vertices[faces[8][1]], vertices[faces[8][2]], // Triangle 1
+    vertices[faces[9][0]], vertices[faces[9][1]], vertices[faces[9][2]], // Triangle 2
 
-	// Bottom face
-	vertices[faces[10][0]], vertices[faces[10][1]], vertices[faces[10][2]], // Triangle 1
-	vertices[faces[11][0]], vertices[faces[11][1]], vertices[faces[11][2]], // Triangle 2
+    // Bottom face
+    vertices[faces[10][0]], vertices[faces[10][1]], vertices[faces[10][2]], // Triangle 1
+    vertices[faces[11][0]], vertices[faces[11][1]], vertices[faces[11][2]], // Triangle 2
 };
 vector<glm::vec3> avatar_vertices;
 //----------------------------------------------------------------------------------------
 // Constructor
 A1::A1()
-	: current_col(0)
+    : current_col(0)
 {
-	colour[0] = 0.0f;
-	colour[1] = 0.0f;
-	colour[2] = 0.0f;
-	num_cubes = 0;
-	dug = false;
+  colour[0] = 0.0f;
+  colour[1] = 0.0f;
+  colour[2] = 0.0f;
+  num_cubes = 0;
+  dug = false;
 }
 
 //----------------------------------------------------------------------------------------
@@ -96,224 +96,234 @@ A1::~A1()
  */
 void A1::init()
 {
-	// Initialize random number generator
-	int rseed = getpid();
-	srandom(rseed);
-	// Print random number seed in case we want to rerun with
-	// same random numbers
-	cout << "Random number seed = " << rseed << endl;
+  // Initialize random number generator
+  int rseed = getpid();
+  srandom(rseed);
+  // Print random number seed in case we want to rerun with
+  // same random numbers
+  cout << "Random number seed = " << rseed << endl;
 
-	// Set the background colour.
-	glClearColor(0.3, 0.5, 0.7, 1.0);
+  // Set the background colour.
+  glClearColor(0.3, 0.5, 0.7, 1.0);
 
-	// Build the shader
-	m_shader.generateProgramObject();
-	m_shader.attachVertexShader(
-		getAssetFilePath("VertexShader.vs").c_str());
-	m_shader.attachFragmentShader(
-		getAssetFilePath("FragmentShader.fs").c_str());
-	m_shader.link();
+  // Build the shader
+  m_shader.generateProgramObject();
+  m_shader.attachVertexShader(
+      getAssetFilePath("VertexShader.vs").c_str());
+  m_shader.attachFragmentShader(
+      getAssetFilePath("FragmentShader.fs").c_str());
+  m_shader.link();
 
-	// Set up the uniforms
-	P_uni = m_shader.getUniformLocation("P");
-	V_uni = m_shader.getUniformLocation("V");
-	M_uni = m_shader.getUniformLocation("M");
-	col_uni = m_shader.getUniformLocation("colour");
-	scale_uniform = m_shader.getUniformLocation("scale");
-	avatar = m_shader.getUniformLocation("is_avatar");
-	offsetAttrib = m_shader.getAttribLocation("offset");
-	avatar_offsetAttrib = m_shader.getUniformLocation("avatar_offset");
-	posAttrib = m_shader.getAttribLocation("position");
+  // Set up the uniforms
+  P_uni = m_shader.getUniformLocation("P");
+  V_uni = m_shader.getUniformLocation("V");
+  M_uni = m_shader.getUniformLocation("M");
+  col_uni = m_shader.getUniformLocation("colour");
+  scale_uniform = m_shader.getUniformLocation("scale");
+  avatar = m_shader.getUniformLocation("is_avatar");
+  offsetAttrib = m_shader.getAttribLocation("offset");
+  avatar_offsetAttrib = m_shader.getUniformLocation("avatar_offset");
+  posAttrib = m_shader.getAttribLocation("position");
 
-	maze = new Maze(DIM);
+  maze = new Maze(DIM);
 
-	Icosphere sphere;
-	sphere.generateIcosphere(1);
-	avatar_vertices = sphere.faces_vertices;
-	maze_matrix.resize(DIM, vector<int>(DIM, 0));
+  Icosphere sphere;
+  sphere.generateIcosphere(1);
+  avatar_vertices = sphere.faces_vertices;
+  maze_matrix.resize(DIM, vector<int>(DIM, 0));
 
-	initGrid();
+  initGrid();
 
-	// Set up initial view and projection matrices (need to do this here,
-	// since it depends on the GLFW window being set up correctly).
-	view = glm::lookAt(
-		glm::vec3(0.0f, 2. * float(DIM) * 2.0 * M_SQRT1_2, float(DIM) * 2.0 * M_SQRT1_2),
-		glm::vec3(0.0f, 0.0f, 0.0f),
-		glm::vec3(0.0f, 1.0f, 0.0f));
+  // Set up initial view and projection matrices (need to do this here,
+  // since it depends on the GLFW window being set up correctly).
+  view = glm::lookAt(
+      glm::vec3(0.0f, 2. * float(DIM) * 2.0 * M_SQRT1_2, float(DIM) * 2.0 * M_SQRT1_2),
+      glm::vec3(0.0f, 0.0f, 0.0f),
+      glm::vec3(0.0f, 1.0f, 0.0f));
 
-	proj = glm::perspective(
-		glm::radians(30.0f),
-		float(m_framebufferWidth) / float(m_framebufferHeight),
-		1.0f, 1000.0f);
+  proj = glm::perspective(
+      glm::radians(30.0f),
+      float(m_framebufferWidth) / float(m_framebufferHeight),
+      1.0f, 1000.0f);
+}
+
+void A1::initializeCubes()
+{
+  for (int x = 0; x < DIM; ++x)
+  {
+    for (int y = 0; y < DIM; ++y)
+    {
+      num_cubes += maze->getValue(x, y);
+    }
+  }
+  cout << "num cubes: " << num_cubes << endl;
+  glm::vec2 *translations = new glm::vec2[num_cubes];
+
+  size_t ct = 0;
+  vec2 cellPosition(0, 0);
+  for (int x = 0; x < DIM; ++x)
+  {
+    for (int z = 0; z < DIM; ++z)
+    {
+      if (maze->getValue(x, z) == 1)
+      {
+        cellPosition.x = x + 0.5;
+        cellPosition.y = z + 0.5;
+        translations[ct++] = cellPosition;
+        maze_matrix[x][z] = 1;
+      }
+      else if (x == 0)
+      {
+        maze_matrix[x][z] = -1; // avatar start pos in maze
+        avatar_pos[1] += z;
+        avatar_cell.x = x;
+        avatar_cell.y = z;
+      }
+      else
+      {
+        maze_matrix[x][z] = 0;
+      }
+    }
+  }
+  for (int y = 0; y < DIM; ++y)
+  {
+    for (int x = 0; x < DIM; ++x)
+    {
+      cout << maze_matrix[x][y] << " ";
+    }
+    cout << endl;
+  }
+  cout << "ct: " << ct << endl;
+  cout << "num_cubes: " << num_cubes << endl;
+
+  // offsets for each cube
+  GLuint instanceVBO;
+  glGenBuffers(1, &instanceVBO);
+  glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+  glBufferData(GL_ARRAY_BUFFER, num_cubes * sizeof(vec2), &translations[0], GL_STATIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  // pass cube data
+  glGenVertexArrays(1, &m_maze_vao);
+  glBindVertexArray(m_maze_vao);
+
+  glGenBuffers(1, &m_maze_vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, m_maze_vbo);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(cube), cube, GL_STATIC_DRAW);
+
+  // Specify the means of extracting the position values properly.
+  glEnableVertexAttribArray(posAttrib);
+  // nullptr represents offset where attribute is stored (null means none), 3 represents the x,y,z vertex inputs, 0 since no padding between vertices
+  glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr); // this will store the information in vao -> reference to vbo and how to retrieve attributes
+
+  glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+  glEnableVertexAttribArray(offsetAttrib);
+  glVertexAttribPointer(offsetAttrib, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
+  glVertexAttribDivisor(offsetAttrib, 1); // instanced vertex attribute.
+
+  // Reset state to prevent rogue code from messing with *my* stuff!
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void A1::initGrid()
 {
-	num_cubes = 0;
-	avatar_pos[0] = 0.5f;
-	avatar_pos[1] = 0.5f;
-	m_scale = 1.0;
+  num_cubes = 0;
+  avatar_pos[0] = 0.5f;
+  avatar_pos[1] = 0.5f;
+  m_scale = 1.0;
 
-	size_t sz = 3 * 2 * 2 * (DIM + 3);
+  size_t sz = 3 * 2 * 2 * (DIM + 3);
 
-	float *verts = new float[sz];
-	size_t ct = 0;
-	for (int idx = 0; idx < DIM + 3; ++idx)
-	{
-		verts[ct] = -1;
-		verts[ct + 1] = 0;
-		verts[ct + 2] = idx - 1;
-		verts[ct + 3] = DIM + 1;
-		verts[ct + 4] = 0;
-		verts[ct + 5] = idx - 1;
-		ct += 6;
+  float *verts = new float[sz];
+  size_t ct = 0;
+  for (int idx = 0; idx < DIM + 3; ++idx)
+  {
+    verts[ct] = -1;
+    verts[ct + 1] = 0;
+    verts[ct + 2] = idx - 1;
+    verts[ct + 3] = DIM + 1;
+    verts[ct + 4] = 0;
+    verts[ct + 5] = idx - 1;
+    ct += 6;
 
-		verts[ct] = idx - 1;
-		verts[ct + 1] = 0;
-		verts[ct + 2] = -1;
-		verts[ct + 3] = idx - 1;
-		verts[ct + 4] = 0;
-		verts[ct + 5] = DIM + 1;
-		ct += 6;
-	}
+    verts[ct] = idx - 1;
+    verts[ct + 1] = 0;
+    verts[ct + 2] = -1;
+    verts[ct + 3] = idx - 1;
+    verts[ct + 4] = 0;
+    verts[ct + 5] = DIM + 1;
+    ct += 6;
+  }
 
-	// Create the vertex array to record buffer assignments.
-	glGenVertexArrays(1, &m_grid_vao);
-	glBindVertexArray(m_grid_vao);
+  // Create the vertex array to record buffer assignments.
+  glGenVertexArrays(1, &m_grid_vao);
+  glBindVertexArray(m_grid_vao);
 
-	// Create the cube vertex buffer
-	glGenBuffers(1, &m_grid_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, m_grid_vbo);
-	glBufferData(GL_ARRAY_BUFFER, sz * sizeof(float),
-				 verts, GL_STATIC_DRAW);
+  // Create the cube vertex buffer
+  glGenBuffers(1, &m_grid_vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, m_grid_vbo);
+  glBufferData(GL_ARRAY_BUFFER, sz * sizeof(float),
+               verts, GL_STATIC_DRAW);
 
-	// Specify the means of extracting the position values properly.
-	glEnableVertexAttribArray(posAttrib);
-	glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+  // Specify the means of extracting the position values properly.
+  glEnableVertexAttribArray(posAttrib);
+  glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-	// Reset state to prevent rogue code from messing with *my*
-	// stuff!
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  // Reset state to prevent rogue code from messing with *my*
+  // stuff!
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-	for (int x = 0; x < DIM; ++x)
-	{
-		for (int y = 0; y < DIM; ++y)
-		{
-			num_cubes += dug ? maze->getValue(x, y) : 1;
-		}
-	}
-	cout << "num cubes: " << num_cubes << endl;
-	glm::vec2 *translations = new glm::vec2[num_cubes];
+  if (dug)
+  {
+    initializeCubes();
+  }
 
-	ct = 0;
-	vec2 cellPosition(0, 0);
-	for (int x = 0; x < DIM; ++x)
-	{
-		for (int z = 0; z < DIM; ++z)
-		{
-			if (!dug || maze->getValue(x, z) == 1)
-			{
-				if (dug)
-				{
-					cout << "x: " << x << " z: " << z << endl;
-				}
-				cellPosition.x = x + 0.5;
-				cellPosition.y = z + 0.5;
-				translations[ct++] = cellPosition;
-				maze_matrix[x][z] = 1;
-			}
-			else if (x == 0)
-			{
-				maze_matrix[x][z] = -1; // avatar start pos in maze
-				avatar_pos[1] += z;
-				avatar_cell.x = x;
-				avatar_cell.y = z;
-			}
-			else
-			{
-				maze_matrix[x][z] = 0;
-			}
-		}
-	}
-	for (int y = 0; y < DIM; ++y)
-	{
-		for (int x = 0; x < DIM; ++x)
-		{
-			cout << maze_matrix[x][y] << " ";
-		}
-		cout << endl;
-	}
-	cout << "ct: " << ct << endl;
-	cout << "num_cubes: " << num_cubes << endl;
+  // OpenGL has the buffer now, there's no need for us to keep a copy.
+  // delete[] verts;
+  vec3 vertices[avatar_vertices.size()];
+  cout << "avatar vertices size: " << avatar_vertices.size() << endl;
+  for (int i = 0; i < avatar_vertices.size(); i++)
+  {
+    vertices[i] = avatar_vertices[i];
+  }
+  glGenVertexArrays(1, &m_avatar_vao);
+  glBindVertexArray(m_avatar_vao);
 
-	// offsets for each cube
-	GLuint instanceVBO;
-	glGenBuffers(1, &instanceVBO);
-	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-	glBufferData(GL_ARRAY_BUFFER, num_cubes * sizeof(vec2), &translations[0], GL_STATIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+  // Create the cube vertex buffer
+  glGenBuffers(1, &m_avatar_vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, m_avatar_vbo);
+  glBufferData(GL_ARRAY_BUFFER, avatar_vertices.size() * sizeof(vec3),
+               vertices, GL_STATIC_DRAW);
 
-	// pass cube data
-	glGenVertexArrays(1, &m_maze_vao);
-	glBindVertexArray(m_maze_vao);
+  // Specify the means of extracting the position values properly.
+  GLint posAttrib = m_shader.getAttribLocation("position");
+  glEnableVertexAttribArray(posAttrib);
+  glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-	glGenBuffers(1, &m_maze_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, m_maze_vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(cube), cube, GL_STATIC_DRAW);
-
-	// Specify the means of extracting the position values properly.
-	glEnableVertexAttribArray(posAttrib);
-	// nullptr represents offset where attribute is stored (null means none), 3 represents the x,y,z vertex inputs, 0 since no padding between vertices
-	glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr); // this will store the information in vao -> reference to vbo and how to retrieve attributes
-
-	glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-	glEnableVertexAttribArray(offsetAttrib);
-	glVertexAttribPointer(offsetAttrib, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
-	glVertexAttribDivisor(offsetAttrib, 1); // instanced vertex attribute.
-
-	// Reset state to prevent rogue code from messing with *my* stuff!
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-	// OpenGL has the buffer now, there's no need for us to keep a copy.
-	// delete[] verts;
-	vec3 vertices[avatar_vertices.size()];
-	cout << "avatar vertices size: " << avatar_vertices.size() << endl;
-	for (int i = 0; i < avatar_vertices.size(); i++)
-	{
-		vertices[i] = avatar_vertices[i];
-	}
-	glGenVertexArrays(1, &m_avatar_vao);
-	glBindVertexArray(m_avatar_vao);
-
-	// Create the cube vertex buffer
-	glGenBuffers(1, &m_avatar_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, m_avatar_vbo);
-	glBufferData(GL_ARRAY_BUFFER, avatar_vertices.size() * sizeof(vec3),
-				 vertices, GL_STATIC_DRAW);
-
-	// Specify the means of extracting the position values properly.
-	GLint posAttrib = m_shader.getAttribLocation("position");
-	glEnableVertexAttribArray(posAttrib);
-	glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-
-	// Reset state to prevent rogue code from messing with *my*
-	// stuff!
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	CHECK_GL_ERRORS;
+  // Reset state to prevent rogue code from messing with *my*
+  // stuff!
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  CHECK_GL_ERRORS;
 }
 
 void A1::dig()
 {
-	maze->digMaze();
-	dug = true;
-	// maze->printMaze();
-	initGrid();
+  maze->digMaze();
+  dug = true;
+  initGrid(); // need to set dig to true
+}
+
+void A1::reset()
+{
+  maze->reset();
+  dug = false;
+  initGrid();
 }
 
 //----------------------------------------------------------------------------------------
@@ -322,7 +332,7 @@ void A1::dig()
  */
 void A1::appLogic()
 {
-	// Place per frame, application logic here ...
+  // Place per frame, application logic here ...
 }
 
 //----------------------------------------------------------------------------------------
@@ -331,121 +341,126 @@ void A1::appLogic()
  */
 void A1::guiLogic()
 {
-	// We already know there's only going to be one window, so for
-	// simplicity we'll store button states in static local variables.
-	// If there was ever a possibility of having multiple instances of
-	// A1 running simultaneously, this would break; you'd want to make
-	// this into instance fields of A1.
-	static bool showTestWindow(false);
-	static bool showDebugWindow(true);
+  // We already know there's only going to be one window, so for
+  // simplicity we'll store button states in static local variables.
+  // If there was ever a possibility of having multiple instances of
+  // A1 running simultaneously, this would break; you'd want to make
+  // this into instance fields of A1.
+  static bool showTestWindow(false);
+  static bool showDebugWindow(true);
 
-	ImGuiWindowFlags windowFlags(ImGuiWindowFlags_AlwaysAutoResize);
-	float opacity(0.5f);
+  ImGuiWindowFlags windowFlags(ImGuiWindowFlags_AlwaysAutoResize);
+  float opacity(0.5f);
 
-	ImGui::Begin("Debug Window", &showDebugWindow, ImVec2(100, 100), opacity, windowFlags);
-	if (ImGui::Button("Quit Application"))
-	{
-		glfwSetWindowShouldClose(m_window, GL_TRUE);
-	}
-	if (ImGui::Button("Dig"))
-	{
-		dig();
-	}
+  ImGui::Begin("Debug Window", &showDebugWindow, ImVec2(100, 100), opacity, windowFlags);
+  if (ImGui::Button("Quit Application"))
+  {
+    glfwSetWindowShouldClose(m_window, GL_TRUE);
+  }
+  if (ImGui::Button("Dig"))
+  {
+    dig();
+  }
+  if (ImGui::Button("Reset"))
+  {
+    reset();
+    // should also reset rotation
+  }
 
-	// Eventually you'll create multiple colour widgets with
-	// radio buttons.  If you use PushID/PopID to give them all
-	// unique IDs, then ImGui will be able to keep them separate.
-	// This is unnecessary with a single colour selector and
-	// radio button, but I'm leaving it in as an example.
+  // Eventually you'll create multiple colour widgets with
+  // radio buttons.  If you use PushID/PopID to give them all
+  // unique IDs, then ImGui will be able to keep them separate.
+  // This is unnecessary with a single colour selector and
+  // radio button, but I'm leaving it in as an example.
 
-	// Prefixing a widget name with "##" keeps it from being
-	// displayed.
+  // Prefixing a widget name with "##" keeps it from being
+  // displayed.
 
-	ImGui::PushID(0);
-	ImGui::ColorEdit3("##Colour", colour);
-	ImGui::SameLine();
-	if (ImGui::RadioButton("##Col", &current_col, 0))
-	{
-		// Select this colour.
-	}
-	ImGui::PopID();
+  ImGui::PushID(0);
+  ImGui::ColorEdit3("##Colour", colour);
+  ImGui::SameLine();
+  if (ImGui::RadioButton("##Col", &current_col, 0))
+  {
+    // Select this colour.
+  }
+  ImGui::PopID();
 
-	/*
-			// For convenience, you can uncomment this to show ImGui's massive
-			// demonstration window right in your application.  Very handy for
-			// browsing around to get the widget you want.  Then look in
-			// shared/imgui/imgui_demo.cpp to see how it's done.
-			if( ImGui::Button( "Test Window" ) ) {
-				showTestWindow = !showTestWindow;
-			}
-	*/
+  /*
+      // For convenience, you can uncomment this to show ImGui's massive
+      // demonstration window right in your application.  Very handy for
+      // browsing around to get the widget you want.  Then look in
+      // shared/imgui/imgui_demo.cpp to see how it's done.
+      if( ImGui::Button( "Test Window" ) ) {
+        showTestWindow = !showTestWindow;
+      }
+  */
 
-	ImGui::Text("Framerate: %.1f FPS", ImGui::GetIO().Framerate);
+  ImGui::Text("Framerate: %.1f FPS", ImGui::GetIO().Framerate);
 
-	ImGui::End();
+  ImGui::End();
 
-	if (showTestWindow)
-	{
-		ImGui::ShowTestWindow(&showTestWindow);
-	}
+  if (showTestWindow)
+  {
+    ImGui::ShowTestWindow(&showTestWindow);
+  }
 }
 
 bool A1::valid_move(char direction)
 {
-	int x = avatar_cell.x;
-	int y = avatar_cell.y;
-	bool valid = false;
+  int x = avatar_cell.x;
+  int y = avatar_cell.y;
+  bool valid = false;
 
-	if (direction == 'u')
-	{
+  if (direction == 'u')
+  {
 
-		if (y - 1 >= 0 && maze_matrix[x][y - 1] == 0)
-		{
-			avatar_cell.y -= 1;
-			valid = true;
-		}
-	}
-	if (direction == 'd')
-	{
-		if (y + 1 < DIM && maze_matrix[x][y + 1] == 0)
-		{
-			avatar_cell.y += 1;
-			valid = true;
-		}
-	}
-	if (direction == 'l')
-	{
+    if (y - 1 >= 0 && maze_matrix[x][y - 1] == 0)
+    {
+      avatar_cell.y -= 1;
+      valid = true;
+    }
+  }
+  if (direction == 'd')
+  {
+    if (y + 1 < DIM && maze_matrix[x][y + 1] == 0)
+    {
+      avatar_cell.y += 1;
+      valid = true;
+    }
+  }
+  if (direction == 'l')
+  {
 
-		if (x - 1 >= 0 && maze_matrix[x - 1][y] == 0)
-		{
-			avatar_cell.x -= 1;
-			valid = true;
-		}
-	}
-	if (direction == 'r')
-	{
-		if (x + 1 < DIM && maze_matrix[x + 1][y] == 0)
-		{
-			avatar_cell.x += 1;
-			valid = true;
-		}
-	}
-	cout << "valid: " << valid << endl;
-	if (valid)
-	{
-		maze_matrix[x][y] = 0;
-		maze_matrix[avatar_cell.x][avatar_cell.y] = -1;
-		for (int y = 0; y < DIM; ++y)
-		{
-			for (int x = 0; x < DIM; ++x)
-			{
-				cout << maze_matrix[x][y] << " ";
-			}
-			cout << endl;
-		}
-		return true;
-	}
-	return false;
+    if (x - 1 >= 0 && maze_matrix[x - 1][y] == 0)
+    {
+      avatar_cell.x -= 1;
+      valid = true;
+    }
+  }
+  if (direction == 'r')
+  {
+    if (x + 1 < DIM && maze_matrix[x + 1][y] == 0)
+    {
+      avatar_cell.x += 1;
+      valid = true;
+    }
+  }
+  cout << "valid: " << valid << endl;
+  if (valid)
+  {
+    maze_matrix[x][y] = 0;
+    maze_matrix[avatar_cell.x][avatar_cell.y] = -1;
+    for (int y = 0; y < DIM; ++y)
+    {
+      for (int x = 0; x < DIM; ++x)
+      {
+        cout << maze_matrix[x][y] << " ";
+      }
+      cout << endl;
+    }
+    return true;
+  }
+  return false;
 }
 //----------------------------------------------------------------------------------------
 /*
@@ -453,44 +468,44 @@ bool A1::valid_move(char direction)
  */
 void A1::draw()
 {
-	// Create a global transformation for the model (centre it).
-	mat4 W;
-	W = glm::translate(W, vec3(-float(DIM) / 2.0f, 0, -float(DIM) / 2.0f));
+  // Create a global transformation for the model (centre it).
+  mat4 W;
+  W = glm::translate(W, vec3(-float(DIM) / 2.0f, 0, -float(DIM) / 2.0f));
 
-	m_shader.enable();
-	glEnable(GL_DEPTH_TEST);
+  m_shader.enable();
+  glEnable(GL_DEPTH_TEST);
 
-	glUniformMatrix4fv(P_uni, 1, GL_FALSE, value_ptr(proj));
-	glUniformMatrix4fv(V_uni, 1, GL_FALSE, value_ptr(view));
-	glUniformMatrix4fv(M_uni, 1, GL_FALSE, value_ptr(W));
+  glUniformMatrix4fv(P_uni, 1, GL_FALSE, value_ptr(proj));
+  glUniformMatrix4fv(V_uni, 1, GL_FALSE, value_ptr(view));
+  glUniformMatrix4fv(M_uni, 1, GL_FALSE, value_ptr(W));
 
-	// Just draw the grid for now.
-	glUniform1f(avatar, false);
+  // Just draw the grid for now.
+  glUniform1f(avatar, false);
 
-	glBindVertexArray(m_grid_vao);
-	glUniform3f(col_uni, 1, 1, 1);
-	glDrawArrays(GL_LINES, 0, (3 + DIM) * 4);
+  glBindVertexArray(m_grid_vao);
+  glUniform3f(col_uni, 1, 1, 1);
+  glDrawArrays(GL_LINES, 0, (3 + DIM) * 4);
 
-	glUniform1f(scale_uniform, m_scale);
-	glBindVertexArray(m_maze_vao);
-	glDrawArraysInstanced(GL_LINES, 0, 36, num_cubes);
+  glUniform1f(scale_uniform, m_scale);
+  glBindVertexArray(m_maze_vao);
+  glDrawArraysInstanced(GL_LINES, 0, 36, num_cubes);
 
-	glUniform1f(avatar, true);
-	glUniform2fv(avatar_offsetAttrib, 1, avatar_pos);
-	glBindVertexArray(m_avatar_vao);
-	glUniform3f(col_uni, 1, 1, 1);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glDrawArrays(GL_TRIANGLES, 0, avatar_vertices.size());
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  glUniform1f(avatar, true);
+  glUniform2fv(avatar_offsetAttrib, 1, avatar_pos);
+  glBindVertexArray(m_avatar_vao);
+  glUniform3f(col_uni, 1, 1, 1);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+  glDrawArrays(GL_TRIANGLES, 0, avatar_vertices.size());
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-	// Draw the cubes
-	// Highlight the active square.clear
-	m_shader.disable();
+  // Draw the cubes
+  // Highlight the active square.clear
+  m_shader.disable();
 
-	// Restore defaults
-	glBindVertexArray(0);
+  // Restore defaults
+  glBindVertexArray(0);
 
-	CHECK_GL_ERRORS;
+  CHECK_GL_ERRORS;
 }
 
 //----------------------------------------------------------------------------------------
@@ -506,13 +521,13 @@ void A1::cleanup()
  * Event handler.  Handles cursor entering the window area events.
  */
 bool A1::cursorEnterWindowEvent(
-	int entered)
+    int entered)
 {
-	bool eventHandled(false);
+  bool eventHandled(false);
 
-	// Fill in with event handling code...
+  // Fill in with event handling code...
 
-	return eventHandled;
+  return eventHandled;
 }
 
 //----------------------------------------------------------------------------------------
@@ -521,18 +536,18 @@ bool A1::cursorEnterWindowEvent(
  */
 bool A1::mouseMoveEvent(double xPos, double yPos)
 {
-	bool eventHandled(false);
+  bool eventHandled(false);
 
-	if (!ImGui::IsMouseHoveringAnyWindow())
-	{
-		// Put some code here to handle rotations.  Probably need to
-		// check whether we're *dragging*, not just moving the mouse.
-		// Probably need some instance variables to track the current
-		// rotation amount, and maybe the previous X position (so
-		// that you can rotate relative to the *change* in X.
-	}
+  if (!ImGui::IsMouseHoveringAnyWindow())
+  {
+    // Put some code here to handle rotations.  Probably need to
+    // check whether we're *dragging*, not just moving the mouse.
+    // Probably need some instance variables to track the current
+    // rotation amount, and maybe the previous X position (so
+    // that you can rotate relative to the *change* in X.
+  }
 
-	return eventHandled;
+  return eventHandled;
 }
 
 //----------------------------------------------------------------------------------------
@@ -541,15 +556,15 @@ bool A1::mouseMoveEvent(double xPos, double yPos)
  */
 bool A1::mouseButtonInputEvent(int button, int actions, int mods)
 {
-	bool eventHandled(false);
+  bool eventHandled(false);
 
-	if (!ImGui::IsMouseHoveringAnyWindow())
-	{
-		// The user clicked in the window.  If it's the left
-		// mouse button, initiate a rotation.
-	}
+  if (!ImGui::IsMouseHoveringAnyWindow())
+  {
+    // The user clicked in the window.  If it's the left
+    // mouse button, initiate a rotation.
+  }
 
-	return eventHandled;
+  return eventHandled;
 }
 
 //----------------------------------------------------------------------------------------
@@ -558,11 +573,11 @@ bool A1::mouseButtonInputEvent(int button, int actions, int mods)
  */
 bool A1::mouseScrollEvent(double xOffSet, double yOffSet)
 {
-	bool eventHandled(false);
+  bool eventHandled(false);
 
-	// Zoom in or out.
+  // Zoom in or out.
 
-	return eventHandled;
+  return eventHandled;
 }
 
 //----------------------------------------------------------------------------------------
@@ -571,11 +586,11 @@ bool A1::mouseScrollEvent(double xOffSet, double yOffSet)
  */
 bool A1::windowResizeEvent(int width, int height)
 {
-	bool eventHandled(false);
+  bool eventHandled(false);
 
-	// Fill in with event handling code...
+  // Fill in with event handling code...
 
-	return eventHandled;
+  return eventHandled;
 }
 
 //----------------------------------------------------------------------------------------
@@ -584,66 +599,75 @@ bool A1::windowResizeEvent(int width, int height)
  */
 bool A1::keyInputEvent(int key, int action, int mods)
 {
-	bool eventHandled(false);
+  bool eventHandled(false);
 
-	// Fill in with event handling code...
-	if (action == GLFW_PRESS)
-	{
-		// Respond to some key events.
-		if (key == GLFW_KEY_Q)
-		{
-			// cout << "Q key pressed" << endl;
-			glfwSetWindowShouldClose(m_window, GL_TRUE);
-			eventHandled = true;
-		}
-		if (key == GLFW_KEY_D)
-		{
-			// cout << "D key pressed" << endl;
-			dig();
-			eventHandled = true;
-		}
-		// add 0 check(lower/upper bound)
-		if (key == GLFW_KEY_SPACE)
-		{
-			// cout << "SPACE key pressed" << endl;
-			m_scale *= 1.25; // UPDATE TO ONLY DO UNIT INCREASE
-			eventHandled = true;
-		}
-		if (key == GLFW_KEY_BACKSPACE)
-		{
-			// cout << "BACKSPACE key pressed" << endl;
-			m_scale *= 0.8;
-			eventHandled = true;
-		}
-		if (key == GLFW_KEY_UP)
-		{
-			// cout << "UP Arrow pressed" << endl;
-			if (valid_move('u'))
-				avatar_pos[1] -= 1.0f; // check why its switching
-			eventHandled = true;
-		}
-		if (key == GLFW_KEY_DOWN)
-		{
-			// cout << "Down Arrow pressed" << endl;
-			if (valid_move('d'))
-				avatar_pos[1] += 1.0f;
-			eventHandled = true;
-		}
-		if (key == GLFW_KEY_LEFT)
-		{
-			// cout << "Left Arrow pressed" << endl;
-			if (valid_move('l'))
-				avatar_pos[0] -= 1.0f;
-			eventHandled = true;
-		}
-		if (key == GLFW_KEY_RIGHT)
-		{
-			// cout << "Right Arrow pressed" << endl;
-			if (valid_move('r'))
-				avatar_pos[0] += 1.0f;
-			eventHandled = true;
-		}
-	}
+  // Fill in with event handling code...
+  if (action == GLFW_PRESS)
+  {
+    // Respond to some key events.
+    if (key == GLFW_KEY_Q)
+    {
+      // cout << "Q key pressed" << endl;
+      glfwSetWindowShouldClose(m_window, GL_TRUE);
+      eventHandled = true;
+    }
+    if (key == GLFW_KEY_D)
+    {
+      // cout << "D key pressed" << endl;
+      dig();
+      eventHandled = true;
+    }
+    if (key == GLFW_KEY_R)
+    {
+      // cout << "D key pressed" << endl;
+      reset();
+      eventHandled = true;
+    }
+    // add 0 check(lower/upper bound)
+    if (key == GLFW_KEY_SPACE)
+    {
+      // cout << "SPACE key pressed" << endl;
+      m_scale += 1; // UPDATE TO ONLY DO UNIT INCREASE
+      eventHandled = true;
+    }
+    if (key == GLFW_KEY_BACKSPACE)
+    {
+      // cout << "BACKSPACE key pressed" << endl;
+      if (m_scale > -1)
+      {
+        m_scale -= 1;
+      }
+      eventHandled = true;
+    }
+    if (key == GLFW_KEY_UP)
+    {
+      // cout << "UP Arrow pressed" << endl;
+      if (valid_move('u'))
+        avatar_pos[1] -= 1.0f; // check why its switching
+      eventHandled = true;
+    }
+    if (key == GLFW_KEY_DOWN)
+    {
+      // cout << "Down Arrow pressed" << endl;
+      if (valid_move('d'))
+        avatar_pos[1] += 1.0f;
+      eventHandled = true;
+    }
+    if (key == GLFW_KEY_LEFT)
+    {
+      // cout << "Left Arrow pressed" << endl;
+      if (valid_move('l'))
+        avatar_pos[0] -= 1.0f;
+      eventHandled = true;
+    }
+    if (key == GLFW_KEY_RIGHT)
+    {
+      // cout << "Right Arrow pressed" << endl;
+      if (valid_move('r'))
+        avatar_pos[0] += 1.0f;
+      eventHandled = true;
+    }
+  }
 
-	return eventHandled;
+  return eventHandled;
 }

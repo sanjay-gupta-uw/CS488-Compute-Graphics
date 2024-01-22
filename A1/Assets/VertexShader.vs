@@ -22,7 +22,7 @@ void main() {
 	}
 	else {
 		vec3 pos = position;
-		pos.y *= scale;
+		pos.y += scale;
 		pos += vec3(offset.x, 0.0, offset.y);
 		gl_Position = P * V * M * vec4(pos, 1.0);
 	}
