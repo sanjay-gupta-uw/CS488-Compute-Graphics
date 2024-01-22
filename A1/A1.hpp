@@ -7,6 +7,7 @@
 #include "cs488-framework/CS488Window.hpp"
 #include "cs488-framework/OpenGLImport.hpp"
 #include "cs488-framework/ShaderProgram.hpp"
+#include <vector>
 
 #include "maze.hpp"
 
@@ -41,12 +42,17 @@ private:
 	GLint M_uni;   // Uniform location for Model matrix.
 	GLint col_uni; // Uniform location for cube colour.
 	GLint scale_uniform;
+	GLint avatar;
 	GLuint offsetAttrib;
+	GLuint avatar_offsetAttrib;
 	GLint posAttrib;
 
 	// Fields related to grid geometry.
 	GLuint m_grid_vao; // Vertex Array Object
 	GLuint m_grid_vbo; // Vertex Buffer Object
+
+	GLuint m_maze_vao;
+	GLuint m_maze_vbo;
 
 	GLuint m_avatar_vao;
 	GLuint m_avatar_vbo;
@@ -60,6 +66,9 @@ private:
 	int num_cubes;
 	Maze *maze;
 	bool dug;
-
+	float avatar_pos[2];
 	float m_scale;
+	std::vector<std::vector<int>> maze_matrix;
+	bool valid_move(char direction);
+	glm::vec2 avatar_cell;
 };

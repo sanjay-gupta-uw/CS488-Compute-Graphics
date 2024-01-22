@@ -31,7 +31,10 @@ public:
     std::pair<int, int> key = (v1 <= v2) ? std::make_pair(v1, v2) : std::make_pair(v2, v1);
 
     if (hash_table.find(key) != hash_table.end())
+    {
+      // std::cout << "found: " << key.first << " + " << key.second << std::endl;
       return hash_table[key];
+    }
 
     glm::vec3 vert1 = vertices[v1];
     glm::vec3 vert2 = vertices[v2];
@@ -42,6 +45,7 @@ public:
 
     int idx = addVertex(x, y, z);
     count++;
+    // std::cout << "added vertex: " << key.first << " + " << key.second << std::endl;
 
     hash_table[key] = idx;
     return idx;
@@ -90,7 +94,6 @@ public:
     faces.emplace_back(6, 2, 10);
     faces.emplace_back(8, 6, 7);
     faces.emplace_back(9, 8, 1);
-    int k = 0;
 
     for (int i = 0; i < recursionLevel; i++)
     {
@@ -108,13 +111,9 @@ public:
         new_faces.emplace_back(a, triangle.v2, b);
         new_faces.emplace_back(c, b, triangle.v3);
         new_faces.emplace_back(a, b, c);
-        ++k;
-        // if (k > 10)
-        //   break;
       }
       faces = new_faces;
     }
-    // std::cout << "processed " << k << " faces." << std::endl;
     for (auto triangle : faces)
     {
       faces_vertices.push_back(vertices[triangle.v1]);
@@ -122,9 +121,7 @@ public:
       faces_vertices.push_back(vertices[triangle.v3]);
     }
 
-    std::cout << "Total Vertices: " << vertices.size() << std::endl;
-    // count = count / 2;
-    std::cout << "added " << count << " vertices; total: " << 12 + count << std::endl;
+    // std::cout << "Total Vertices: " << vertices.size() << std::endl;
   }
   void printVertices()
   {
@@ -136,7 +133,9 @@ public:
   }
 };
 
-// Recursion Depth 0 (Initial Icosahedron): 12 vertices.
-// Recursion Depth 1: 27.
-// Recursion Depth 2: 87.
-// Recursion Depth 3: 327.
+// Recursion Depth 0: 12 vertices (the original icosahedron)
+// Recursion Depth 1: 42 vertices
+// Recursion Depth 2: 162 vertices
+// Recursion Depth 3: 642 vertices
+// Recursion Depth 4: 2562 vertices
+// Recursion Depth 5: 10242 vertices

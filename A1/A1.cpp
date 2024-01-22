@@ -96,10 +96,6 @@ A1::~A1()
  */
 void A1::init()
 {
-	Icosphere sphere;
-	sphere.generateIcosphere(0);
-	avatar_vertices = sphere.faces_vertices;
-
 	// Initialize random number generator
 	int rseed = getpid();
 	srandom(rseed);
@@ -124,12 +120,17 @@ void A1::init()
 	M_uni = m_shader.getUniformLocation("M");
 	col_uni = m_shader.getUniformLocation("colour");
 	scale_uniform = m_shader.getUniformLocation("scale");
+	avatar = m_shader.getUniformLocation("is_avatar");
 	offsetAttrib = m_shader.getAttribLocation("offset");
+	avatar_offsetAttrib = m_shader.getUniformLocation("avatar_offset");
 	posAttrib = m_shader.getAttribLocation("position");
 
-	m_scale = 1.0;
-
 	maze = new Maze(DIM);
+
+	Icosphere sphere;
+	sphere.generateIcosphere(1);
+	avatar_vertices = sphere.faces_vertices;
+	maze_matrix.resize(DIM, vector<int>(DIM, 0));
 
 	initGrid();
 
@@ -148,7 +149,54 @@ void A1::init()
 
 void A1::initGrid()
 {
-	// size_t sz = 3 * 2 * 2 * (DIM + 3);
+	num_cubes = 0;
+	avatar_pos[0] = 0.5f;
+	avatar_pos[1] = 0.5f;
+	m_scale = 1.0;
+
+	size_t sz = 3 * 2 * 2 * (DIM + 3);
+
+	float *verts = new float[sz];
+	size_t ct = 0;
+	for (int idx = 0; idx < DIM + 3; ++idx)
+	{
+		verts[ct] = -1;
+		verts[ct + 1] = 0;
+		verts[ct + 2] = idx - 1;
+		verts[ct + 3] = DIM + 1;
+		verts[ct + 4] = 0;
+		verts[ct + 5] = idx - 1;
+		ct += 6;
+
+		verts[ct] = idx - 1;
+		verts[ct + 1] = 0;
+		verts[ct + 2] = -1;
+		verts[ct + 3] = idx - 1;
+		verts[ct + 4] = 0;
+		verts[ct + 5] = DIM + 1;
+		ct += 6;
+	}
+
+	// Create the vertex array to record buffer assignments.
+	glGenVertexArrays(1, &m_grid_vao);
+	glBindVertexArray(m_grid_vao);
+
+	// Create the cube vertex buffer
+	glGenBuffers(1, &m_grid_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, m_grid_vbo);
+	glBufferData(GL_ARRAY_BUFFER, sz * sizeof(float),
+				 verts, GL_STATIC_DRAW);
+
+	// Specify the means of extracting the position values properly.
+	glEnableVertexAttribArray(posAttrib);
+	glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+	// Reset state to prevent rogue code from messing with *my*
+	// stuff!
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
 	for (int x = 0; x < DIM; ++x)
 	{
 		for (int y = 0; y < DIM; ++y)
@@ -159,7 +207,7 @@ void A1::initGrid()
 	cout << "num cubes: " << num_cubes << endl;
 	glm::vec2 *translations = new glm::vec2[num_cubes];
 
-	size_t ct = 0;
+	ct = 0;
 	vec2 cellPosition(0, 0);
 	for (int x = 0; x < DIM; ++x)
 	{
@@ -167,12 +215,38 @@ void A1::initGrid()
 		{
 			if (!dug || maze->getValue(x, z) == 1)
 			{
-				cellPosition.x = x;
-				cellPosition.y = z;
+				if (dug)
+				{
+					cout << "x: " << x << " z: " << z << endl;
+				}
+				cellPosition.x = x + 0.5;
+				cellPosition.y = z + 0.5;
 				translations[ct++] = cellPosition;
+				maze_matrix[x][z] = 1;
+			}
+			else if (x == 0)
+			{
+				maze_matrix[x][z] = -1; // avatar start pos in maze
+				avatar_pos[1] += z;
+				avatar_cell.x = x;
+				avatar_cell.y = z;
+			}
+			else
+			{
+				maze_matrix[x][z] = 0;
 			}
 		}
 	}
+	for (int y = 0; y < DIM; ++y)
+	{
+		for (int x = 0; x < DIM; ++x)
+		{
+			cout << maze_matrix[x][y] << " ";
+		}
+		cout << endl;
+	}
+	cout << "ct: " << ct << endl;
+	cout << "num_cubes: " << num_cubes << endl;
 
 	// offsets for each cube
 	GLuint instanceVBO;
@@ -182,11 +256,11 @@ void A1::initGrid()
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// pass cube data
-	glGenVertexArrays(1, &m_grid_vao);
-	glBindVertexArray(m_grid_vao);
+	glGenVertexArrays(1, &m_maze_vao);
+	glBindVertexArray(m_maze_vao);
 
-	glGenBuffers(1, &m_grid_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, m_grid_vbo);
+	glGenBuffers(1, &m_maze_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, m_maze_vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(cube), cube, GL_STATIC_DRAW);
 
 	// Specify the means of extracting the position values properly.
@@ -207,6 +281,7 @@ void A1::initGrid()
 	// OpenGL has the buffer now, there's no need for us to keep a copy.
 	// delete[] verts;
 	vec3 vertices[avatar_vertices.size()];
+	cout << "avatar vertices size: " << avatar_vertices.size() << endl;
 	for (int i = 0; i < avatar_vertices.size(); i++)
 	{
 		vertices[i] = avatar_vertices[i];
@@ -237,7 +312,7 @@ void A1::dig()
 {
 	maze->digMaze();
 	dug = true;
-	maze->printMaze();
+	// maze->printMaze();
 	initGrid();
 }
 
@@ -315,6 +390,63 @@ void A1::guiLogic()
 	}
 }
 
+bool A1::valid_move(char direction)
+{
+	int x = avatar_cell.x;
+	int y = avatar_cell.y;
+	bool valid = false;
+
+	if (direction == 'u')
+	{
+
+		if (y - 1 >= 0 && maze_matrix[x][y - 1] == 0)
+		{
+			avatar_cell.y -= 1;
+			valid = true;
+		}
+	}
+	if (direction == 'd')
+	{
+		if (y + 1 < DIM && maze_matrix[x][y + 1] == 0)
+		{
+			avatar_cell.y += 1;
+			valid = true;
+		}
+	}
+	if (direction == 'l')
+	{
+
+		if (x - 1 >= 0 && maze_matrix[x - 1][y] == 0)
+		{
+			avatar_cell.x -= 1;
+			valid = true;
+		}
+	}
+	if (direction == 'r')
+	{
+		if (x + 1 < DIM && maze_matrix[x + 1][y] == 0)
+		{
+			avatar_cell.x += 1;
+			valid = true;
+		}
+	}
+	cout << "valid: " << valid << endl;
+	if (valid)
+	{
+		maze_matrix[x][y] = 0;
+		maze_matrix[avatar_cell.x][avatar_cell.y] = -1;
+		for (int y = 0; y < DIM; ++y)
+		{
+			for (int x = 0; x < DIM; ++x)
+			{
+				cout << maze_matrix[x][y] << " ";
+			}
+			cout << endl;
+		}
+		return true;
+	}
+	return false;
+}
 //----------------------------------------------------------------------------------------
 /*
  * Called once per frame, after guiLogic().
@@ -333,17 +465,23 @@ void A1::draw()
 	glUniformMatrix4fv(M_uni, 1, GL_FALSE, value_ptr(W));
 
 	// Just draw the grid for now.
+	glUniform1f(avatar, false);
 
-	// glBindVertexArray(m_grid_vao);
-	// glDrawArraysInstanced(GL_LINES, 0, 36, num_cubes);
+	glBindVertexArray(m_grid_vao);
+	glUniform3f(col_uni, 1, 1, 1);
+	glDrawArrays(GL_LINES, 0, (3 + DIM) * 4);
 
+	glUniform1f(scale_uniform, m_scale);
+	glBindVertexArray(m_maze_vao);
+	glDrawArraysInstanced(GL_LINES, 0, 36, num_cubes);
+
+	glUniform1f(avatar, true);
+	glUniform2fv(avatar_offsetAttrib, 1, avatar_pos);
 	glBindVertexArray(m_avatar_vao);
 	glUniform3f(col_uni, 1, 1, 1);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glDrawArrays(GL_TRIANGLES, 0, avatar_vertices.size());
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-	// glUniform1f(scale_uniform, m_scale);
 
 	// Draw the cubes
 	// Highlight the active square.clear
@@ -454,27 +592,55 @@ bool A1::keyInputEvent(int key, int action, int mods)
 		// Respond to some key events.
 		if (key == GLFW_KEY_Q)
 		{
-			cout << "Q key pressed" << endl;
+			// cout << "Q key pressed" << endl;
 			glfwSetWindowShouldClose(m_window, GL_TRUE);
 			eventHandled = true;
 		}
 		if (key == GLFW_KEY_D)
 		{
-			cout << "D key pressed" << endl;
+			// cout << "D key pressed" << endl;
 			dig();
 			eventHandled = true;
 		}
 		// add 0 check(lower/upper bound)
 		if (key == GLFW_KEY_SPACE)
 		{
-			cout << "SPACE key pressed" << endl;
-			m_scale *= 1.25;
+			// cout << "SPACE key pressed" << endl;
+			m_scale *= 1.25; // UPDATE TO ONLY DO UNIT INCREASE
 			eventHandled = true;
 		}
 		if (key == GLFW_KEY_BACKSPACE)
 		{
-			cout << "BACKSPACE key pressed" << endl;
+			// cout << "BACKSPACE key pressed" << endl;
 			m_scale *= 0.8;
+			eventHandled = true;
+		}
+		if (key == GLFW_KEY_UP)
+		{
+			// cout << "UP Arrow pressed" << endl;
+			if (valid_move('u'))
+				avatar_pos[1] -= 1.0f; // check why its switching
+			eventHandled = true;
+		}
+		if (key == GLFW_KEY_DOWN)
+		{
+			// cout << "Down Arrow pressed" << endl;
+			if (valid_move('d'))
+				avatar_pos[1] += 1.0f;
+			eventHandled = true;
+		}
+		if (key == GLFW_KEY_LEFT)
+		{
+			// cout << "Left Arrow pressed" << endl;
+			if (valid_move('l'))
+				avatar_pos[0] -= 1.0f;
+			eventHandled = true;
+		}
+		if (key == GLFW_KEY_RIGHT)
+		{
+			// cout << "Right Arrow pressed" << endl;
+			if (valid_move('r'))
+				avatar_pos[0] += 1.0f;
 			eventHandled = true;
 		}
 	}
