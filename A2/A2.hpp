@@ -66,6 +66,16 @@ class Camera
 {
 public:
 	void updateCoordinateSystem();
+	int computeOutcode(glm::vec4 &v)
+	{
+		int outcode = 0;
+		// camera looks down negative z axis
+		if (v.z > near)
+			outcode |= 1;
+
+		return outcode;
+	};
+
 	Camera(){};
 	Camera(glm::vec3 position, glm::vec3 lookAt, glm::vec3 up, float near, float far, float fov);
 
@@ -111,14 +121,16 @@ protected:
 
 	void drawLine(
 		const glm::vec3 &v0,
-		const glm::vec3 &v1);
+		const glm::vec3 &v1,
+		bool viewport);
 
 	void generateScaleMatrix();
 	void generateRotationMatrix();
-	void generateViewTranslateMatrix();
+	void generateViewMatrix();
+	void generatePerspectiveMatrix();
 
-	void clipCoordinates(glm::vec4 &v0,
-						 glm::vec4 &v1);
+	bool clipNearPlane(glm::vec4 &v0,
+					   glm::vec4 &v1);
 
 	void reset();
 
@@ -157,10 +169,11 @@ protected:
 	double x_change[3] = {0, 0, 0}; // need additional vars for mid/right
 	double prev_x[3] = {-1, -1, -1};
 
-	float left;
-	float right;
-	float bottom;
-	float top;
-	float near;
-	float far;
+	int viewportHeight;
+	int viewportWidth;
+
+	int window_width;
+	int window_height;
+
+	void drawViewportOutline();
 };
