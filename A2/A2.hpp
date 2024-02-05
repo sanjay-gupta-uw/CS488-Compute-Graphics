@@ -125,12 +125,15 @@ protected:
 		bool viewport);
 
 	void generateScaleMatrix();
-	void generateRotationMatrix();
+	void generateRotationMatrix(bool isModel);
+	void generateTranslationMatrix(bool isModel);
 	void generateViewMatrix();
 	void generatePerspectiveMatrix();
 
 	bool clipNearPlane(glm::vec4 &v0,
 					   glm::vec4 &v1);
+
+	void updateTransformations();
 
 	void reset();
 
@@ -140,9 +143,10 @@ protected:
 	glm::mat4 P;
 	glm::mat4 V;
 	glm::mat4 M;
+	glm::mat4 M_viewport;
 
-	glm::mat4 m_translate;
-	glm::mat4 m_rotate[3];
+	glm::mat4 m_translate[2];
+	glm::mat4 m_rotate[2][3];
 	glm::mat4 m_scale;
 
 	float scale[3];
@@ -161,11 +165,10 @@ protected:
 	Cube m_cube;
 	Camera m_camera;
 
-	int transform_mode = -1;
+	int transform_mode = 3;
 
 	bool translate_model = false;
 	bool mouse_input[3] = {false, false, false};
-	bool updated[3] = {false, false, false};
 	double x_change[3] = {0, 0, 0}; // need additional vars for mid/right
 	double prev_x[3] = {-1, -1, -1};
 

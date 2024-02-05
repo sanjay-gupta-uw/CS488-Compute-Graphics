@@ -102,7 +102,127 @@ void A2::init()
 	// position, lookat, up, near, far, fov
 	m_camera = Camera(vec3(5.0f, 5.0f, 5.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), -8.0f, -10.0f, 120);
 
+	for (int i = 0; i < 2; ++i)
+	{
+		for (int j = 0; j < 3; ++j)
+		{
+			translate[i][j] = 0.0f;
+			rotate[i][j] = 0.0f;
+			scale[j] = 0.25f;
+		}
+	}
+
+	// Model:
+	generateScaleMatrix();
+	generateRotationMatrix(true);
+	generateTranslationMatrix(true);
+
+	// View:
+	generateRotationMatrix(false);
+	generateTranslationMatrix(false);
 	generateViewMatrix();
+	generatePerspectiveMatrix();
+
+	updateTransformations();
+
+	M_viewport = mat4(1.0f);
+}
+
+void A2::generateScaleMatrix()
+{
+	m_scale = {
+		vec4(scale[LOCAL_X_AXIS], 0.0f, 0.0f, 0.0f),
+		vec4(0.0f, scale[LOCAL_Y_AXIS], 0.0f, 0.0f),
+		vec4(0.0f, 0.0f, scale[LOCAL_Z_AXIS], 0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f)};
+}
+
+void A2::generateRotationMatrix(bool isModel)
+{
+	CoordinateSystem3D coor_system = isModel ? m_cube.cube_coordinateSystem : m_camera.camera_coordinateSystem;
+	int MODE = isModel ? MODEL : VIEW;
+
+	float x_rad = radians(rotate[MODE][LOCAL_X_AXIS]);
+	float y_rad = radians(rotate[MODE][LOCAL_Y_AXIS]);
+	float z_rad = radians(rotate[MODE][LOCAL_Z_AXIS]);
+
+	m_rotate[MODE][LOCAL_X_AXIS] = {
+		vec4(1.0f, 0.0f, 0.0f, 0.0f),
+		vec4(0.0f, cos(x_rad), sin(x_rad), 0.0f),
+		vec4(0.0f, -sin(x_rad), cos(x_rad), 0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f),
+	};
+
+	m_rotate[MODE][LOCAL_Y_AXIS] = {
+		vec4(cos(y_rad), 0.0f, -sin(y_rad), 0.0f),
+		vec4(0.0f, 1.0f, 0.0f, 0.0f),
+		vec4(sin(y_rad), 0.0f, cos(y_rad), 0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f),
+	};
+
+	m_rotate[MODE][LOCAL_Z_AXIS] = {
+		vec4(cos(z_rad), sin(z_rad), 0.0f, 0.0f),
+		vec4(-sin(z_rad), cos(z_rad), 0.0f, 0.0f),
+		vec4(0.0f, 0.0f, 1.0f, 0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f),
+	};
+
+	if (!isModel)
+	{
+		vec3 axis[3] = {coor_system.x, coor_system.y, coor_system.z};
+		mat4 R = m_rotate[VIEW][0] * m_rotate[VIEW][1] * m_rotate[VIEW][2];
+		m_camera.camera_coordinateSystem.x = vec3(R * vec4(coor_system.x, 1.0f));
+		m_camera.camera_coordinateSystem.y = vec3(R * vec4(coor_system.y, 1.0f));
+		m_camera.camera_coordinateSystem.z = vec3(R * vec4(coor_system.z, 1.0f));
+	}
+}
+
+void A2::generateTranslationMatrix(bool isModel)
+{
+	int MODE = MODEL;
+	vec3 origin = isModel ? m_cube.cube_coordinateSystem.origin : m_camera.camera_coordinateSystem.origin;
+
+	if (!isModel)
+	{
+		MODE = VIEW;
+		origin *= -1;
+	}
+
+	m_translate[MODE] = mat4(1.0f);
+	m_translate[MODE][3] = vec4(origin, 1.0f);
+}
+
+void A2::generateViewMatrix()
+{
+	vec3 camera_x_axis = m_camera.camera_coordinateSystem.x;
+	vec3 camera_y_axis = m_camera.camera_coordinateSystem.y;
+	vec3 camera_z_axis = m_camera.camera_coordinateSystem.z;
+
+	mat4 R = {
+		vec4(camera_x_axis.x, camera_y_axis.x, camera_z_axis.x, 0.0f),
+		vec4(camera_x_axis.y, camera_y_axis.y, camera_z_axis.y, 0.0f),
+		vec4(camera_x_axis.z, camera_y_axis.z, camera_z_axis.z, 0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f)};
+
+	V = R * m_translate[VIEW];
+}
+
+void A2::generatePerspectiveMatrix()
+{
+	float theta = radians(m_camera.fov / 2);
+	P = {
+		vec4((float)((1 / tan(theta)) / (float)(viewportWidth / viewportHeight)), 0.0f, 0.0f, 0.0f),
+		vec4(0.0f, (float)(1 / tan(theta)), 0.0f, 0.0f),
+		vec4(0.0f, 0.0f, -(m_camera.far + m_camera.near) / (m_camera.near - m_camera.far), -1.0f),
+		vec4(0.0f, 0.0f, (-2 * m_camera.far * m_camera.near) / (m_camera.far - m_camera.near), 0.0f),
+	};
+}
+
+void A2::reset()
+{
+	m_cube.reset();
+	// setup variable to track initial camera state
+	m_camera = Camera(vec3(5.0f, 5.0f, 5.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), -8.0f, -10.0f, 120);
 
 	for (int i = 0; i < 2; ++i)
 	{
@@ -114,101 +234,20 @@ void A2::init()
 		}
 	}
 
-	m_translate[0] = vec4(1.0f, 0.0f, 0.0f, 0.0f);
-	m_translate[1] = vec4(0.0f, 1.0f, 0.0f, 0.0f);
-	m_translate[2] = vec4(0.0f, 0.0f, 1.0f, 0.0f);
-	m_translate[3] = vec4(m_cube.cube_coordinateSystem.origin, 1.0f);
-
+	// Model:
 	generateScaleMatrix();
-	m_scale[3] = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	generateRotationMatrix(true);
+	generateTranslationMatrix(true);
 
-	generateRotationMatrix();
-	generatePerspectiveMatrix();
-}
-
-void A2::generateScaleMatrix()
-{
-	m_scale[0] = vec4(scale[LOCAL_X_AXIS], 0.0f, 0.0f, 0.0f);
-	m_scale[1] = vec4(0.0f, scale[LOCAL_Y_AXIS], 0.0f, 0.0f);
-	m_scale[2] = vec4(0.0f, 0.0f, scale[LOCAL_Z_AXIS], 0.0f);
-}
-
-void A2::generateRotationMatrix()
-{
-	vec3 axis[3] = {world_coordinateSystem.x, world_coordinateSystem.y, world_coordinateSystem.z};
-	for (int i = 0; i < 3; ++i)
-	{
-		float rad = rotate[MODEL][i];
-		float w = cos(rotate[MODEL][i]);
-		float x = axis[i].x * sin(rad);
-		float y = axis[i].y * sin(rad);
-		float z = axis[i].z * sin(rad);
-
-		m_rotate[i][0] = vec4(1.0f - 2 * (y * y + z * z), 2 * (x * y + w * z), 2 * (x * z - w * y), 0.0f);
-		m_rotate[i][1] = vec4(2 * (x * y - w * z), 1.0f - 2 * (x * x + z * z), 2 * (y * z + w * x), 0.0f);
-		m_rotate[i][2] = vec4(2 * (x * z + w * y), 2 * (y * z - w * x), 1.0f - 2 * (x * x + y * y), 0.0f);
-		m_rotate[i][3] = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	}
-	// m_rotate[LOCAL_X_AXIS][0] = vec4(1.0f, 0.0f, 0.0f, 0.0f);
-	// m_rotate[LOCAL_X_AXIS][1] = vec4(0.0f, cos(rotate[MODEL][LOCAL_X_AXIS]), sin(rotate[MODEL][LOCAL_X_AXIS]), 0.0f);
-	// m_rotate[LOCAL_X_AXIS][2] = vec4(0.0f, -sin(rotate[MODEL][LOCAL_X_AXIS]), cos(rotate[MODEL][LOCAL_X_AXIS]), 0.0f);
-	// m_rotate[LOCAL_X_AXIS][3] = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-
-	// m_rotate[LOCAL_Y_AXIS][0] = vec4(cos(rotate[MODEL][LOCAL_Y_AXIS]), 0.0f, -sin(rotate[MODEL][LOCAL_Y_AXIS]), 0.0f);
-	// m_rotate[LOCAL_Y_AXIS][1] = vec4(0.0f, 1.0f, 0.0f, 0.0f);
-	// m_rotate[LOCAL_Y_AXIS][2] = vec4(sin(rotate[MODEL][LOCAL_Y_AXIS]), 0.0f, cos(rotate[MODEL][LOCAL_Y_AXIS]), 0.0f);
-	// m_rotate[LOCAL_Y_AXIS][3] = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-
-	// m_rotate[LOCAL_Z_AXIS][0] = vec4(cos(rotate[MODEL][LOCAL_Z_AXIS]), sin(rotate[MODEL][LOCAL_Z_AXIS]), 0.0f, 0.0f);
-	// m_rotate[LOCAL_Z_AXIS][1] = vec4(-sin(rotate[MODEL][LOCAL_Z_AXIS]), cos(rotate[MODEL][LOCAL_Z_AXIS]), 0.0f, 0.0f);
-	// m_rotate[LOCAL_Z_AXIS][2] = vec4(0.0f, 0.0f, 1.0f, 0.0f);
-	// m_rotate[LOCAL_Z_AXIS][3] = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-}
-
-void A2::generateViewMatrix()
-{
-	mat4 T;
-	CoordinateSystem3D c_coordinateSystem = m_camera.camera_coordinateSystem;
-	T[0] = vec4(1.0f, 0.0f, 0.0f, 0.0f);
-	T[1] = vec4(0.0f, 1.0f, 0.0f, 0.0f);
-	T[2] = vec4(0.0f, 0.0f, 1.0f, 0.0f);
-	T[3] = vec4(-c_coordinateSystem.origin.x, -c_coordinateSystem.origin.y, -c_coordinateSystem.origin.z, 1.0f);
-	mat4 R;
-	R[0] = vec4(c_coordinateSystem.x.x, c_coordinateSystem.y.x, c_coordinateSystem.z.x, 0.0f);
-	R[1] = vec4(c_coordinateSystem.x.y, c_coordinateSystem.y.y, c_coordinateSystem.z.y, 0.0f);
-	R[2] = vec4(c_coordinateSystem.x.z, c_coordinateSystem.y.z, c_coordinateSystem.z.z, 0.0f);
-	R[3] = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-	V = R * T;
-}
-
-void A2::generatePerspectiveMatrix()
-{
-	float theta = radians(m_camera.fov / 2);
-	P[0] = vec4((float)((1 / tan(theta)) / (float)(viewportWidth / viewportHeight)), 0.0f, 0.0f, 0.0f);
-	P[1] = vec4(0.0f, (float)(1 / tan(theta)), 0.0f, 0.0f);
-	P[2] = vec4(0.0f, 0.0f, -(m_camera.far + m_camera.near) / (m_camera.near - m_camera.far), -1.0f);
-	P[3] = vec4(0.0f, 0.0f, (-2 * m_camera.far * m_camera.near) / (m_camera.far - m_camera.near), 0.0f);
-}
-
-void A2::reset()
-{
-	m_cube.reset();
-	// setup variable to track initial camera state
-	m_camera = Camera(vec3(0.0f, 0.0f, 20.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), 1.0f, 30.0f, 30.0f);
-	for (int i = 0; i < 2; ++i)
-	{
-		for (int j = 0; j < 3; ++j)
-		{
-			translate[i][j] = 0.0f;
-			rotate[i][j] = 0.0f;
-			scale[j] = 1.0f;
-		}
-	}
-	generateRotationMatrix();
-	generateScaleMatrix();
-	m_translate[3] = vec4(m_cube.cube_coordinateSystem.origin, 1.0f);
+	// View:
+	generateRotationMatrix(false);
+	generateTranslationMatrix(false);
 	generateViewMatrix();
-	transform_mode = -1;
+	generatePerspectiveMatrix();
+
+	updateTransformations();
+
+	transform_mode = 3;
 }
 //----------------------------------------------------------------------------------------
 void A2::createShaderProgram()
@@ -375,6 +414,7 @@ void A2::drawLine(
 	else
 	{
 		// apply transformations on V0, V1
+		// V = mat4(1.0f);
 		vec4 v0_trans = V * M * vec4(V0_, 1.0f);
 		vec4 v1_trans = V * M * vec4(V1_, 1.0f);
 		// vec4 v0_trans = M * vec4(V0_, 1.0f);
@@ -389,6 +429,7 @@ void A2::drawLine(
 		}
 		vec4 v0_perspect = P * v0_trans;
 		vec4 v1_perspect = P * v1_trans;
+		// clip against normalized cube
 
 		V0 = vec2(v0_perspect.x, v0_perspect.y);
 		V1 = vec2(v1_perspect.x, v1_perspect.y);
@@ -429,99 +470,6 @@ void A2::drawViewportOutline()
 void A2::appLogic()
 {
 	// Place per frame, application logic here ...
-	M = m_translate * m_rotate[0] * m_rotate[1] * m_rotate[2] * m_scale;
-	if (transform_mode == 0)
-	{
-		// rotate view
-	}
-	else if (transform_mode == 1)
-	{
-		// translate view
-		for (int i = 0; i < 3; ++i)
-		{
-			if (mouse_input[i])
-			{
-				translate[VIEW][i] += x_change[i] * 0.005;
-				m_camera.camera_coordinateSystem.origin[i] = translate[VIEW][i];
-			}
-			else if (updated[i])
-			{
-				updated[i] = false;
-				prev_x[i] = -1;
-				x_change[i] = 0;
-			}
-		}
-		generateViewMatrix();
-	}
-	else if (transform_mode == 2)
-	{
-		// perspective
-		// LEFT_MOUSE_BUTTON: FOV between 5 and 160
-		// MIDDLE_MOUSE_BUTTON: translate near plane along view direction
-		// RIGHT_MOUSE_BUTTON: translate far plane along view direction
-	}
-	else if (transform_mode == 3)
-	{
-		// rotate model
-		for (int i = 0; i < 3; ++i)
-		{
-			if (mouse_input[i])
-			{
-				rotate[MODEL][i] += x_change[i] * 0.01;
-			}
-			else if (updated[i])
-			{
-				updated[i] = false;
-				prev_x[i] = -1;
-				x_change[i] = 0;
-			}
-		}
-		generateRotationMatrix();
-	}
-	else if (transform_mode == 4)
-	{
-		// translate model
-		// make sure Z updates
-		// bug: holding down and not moving moves the model
-		for (int i = 0; i < 3; ++i)
-		{
-			if (mouse_input[i])
-			{
-				translate[MODEL][i] += x_change[i] * 0.005;
-				m_cube.cube_coordinateSystem.origin[i] = translate[MODEL][i];
-			}
-			else if (updated[i])
-			{
-				updated[i] = false;
-				prev_x[i] = -1;
-				x_change[i] = 0;
-			}
-		}
-		m_translate[3] = vec4(m_cube.cube_coordinateSystem.origin, 1.0f);
-	}
-	else if (transform_mode == 5)
-	{
-		// scale model
-		for (int i = 0; i < 3; ++i)
-		{
-			if (mouse_input[i])
-			{
-				scale[i] += x_change[i] * 0.001;
-			}
-			else if (updated[i])
-			{
-				updated[i] = false;
-				prev_x[i] = -1;
-				x_change[i] = 0;
-			}
-		}
-		generateScaleMatrix();
-	}
-	else if (transform_mode == 6)
-	{
-		// VIEWPORT
-	}
-
 	initLineData();
 
 	// draw cube gnomons
@@ -551,24 +499,14 @@ void A2::appLogic()
 		drawLine(m_cube.cube_vertices[i], m_cube.cube_vertices[i + 4]);
 	}
 
-	// if (mouse_input[0] || mouse_input[1] || mouse_input[2])
-	// 	cout << endl;
-
-	M = mat4(1.0f);
-	// // draw clipping region:
-	// setLineColour(vec3(1.0f, 1.0f, 1.0f));
-	// drawLine(vec3(left, bottom, 0.0f), vec3(right, bottom, 0.0f));
-	// drawLine(vec3(right, bottom, 0.0f), vec3(right, top, 0.0f));
-	// drawLine(vec3(right, top, 0.0f), vec3(left, top, 0.0f));
-	// drawLine(vec3(left, top, 0.0f), vec3(left, bottom, 0.0f));
-
-	// draw world gnomons
-	setLineColour(vec3(1.0f, 0.0f, 0.0f));
-	drawLine(world_coordinateSystem.origin, world_coordinateSystem.x);
-	setLineColour(vec3(0.0f, 1.0f, 0.0f));
-	drawLine(world_coordinateSystem.origin, world_coordinateSystem.y);
-	setLineColour(vec3(0.0f, 0.0f, 1.0f));
-	drawLine(world_coordinateSystem.origin, world_coordinateSystem.z);
+	// M = mat4(1.0f);
+	// // draw world gnomons
+	// setLineColour(vec3(1.0f, 0.0f, 0.0f));
+	// drawLine(world_coordinateSystem.origin, world_coordinateSystem.x);
+	// setLineColour(vec3(0.0f, 1.0f, 0.0f));
+	// drawLine(world_coordinateSystem.origin, world_coordinateSystem.y);
+	// setLineColour(vec3(0.0f, 0.0f, 1.0f));
+	// drawLine(world_coordinateSystem.origin, world_coordinateSystem.z);
 
 	drawViewportOutline();
 }
@@ -684,6 +622,89 @@ void A2::cleanup()
 {
 }
 
+void A2::updateTransformations()
+{
+	float angle_mult = (float)(360.0f / viewportWidth);
+	// float translation_mult = (float)(360.0f / viewportWidth);
+	if (transform_mode == 0)
+	{
+		// rotate view
+		for (int i = 0; i < 3; ++i)
+		{
+			if (mouse_input[i])
+			{
+				rotate[MODEL][i] += x_change[i] * angle_mult;
+			}
+		}
+		generateRotationMatrix(false);
+		generateViewMatrix();
+	}
+	else if (transform_mode == 1)
+	{
+		// translate view
+		for (int i = 0; i < 3; ++i)
+		{
+			if (mouse_input[i])
+			{
+				translate[VIEW][i] += x_change[i] * 0.01;
+				m_camera.camera_coordinateSystem.origin[i] = translate[VIEW][i];
+			}
+		}
+		generateTranslationMatrix(false);
+		generateViewMatrix();
+	}
+	else if (transform_mode == 2)
+	{
+		// perspective
+		// LEFT_MOUSE_BUTTON: FOV between 5 and 160
+		// MIDDLE_MOUSE_BUTTON: translate near plane along view direction
+		// RIGHT_MOUSE_BUTTON: translate far plane along view direction
+	}
+	else if (transform_mode == 3)
+	{
+		// rotate model
+		for (int i = 0; i < 3; ++i)
+		{
+			if (mouse_input[i])
+			{
+				rotate[MODEL][i] += x_change[i] * angle_mult;
+			}
+		}
+		generateRotationMatrix(true);
+	}
+	else if (transform_mode == 4)
+	{
+		// translate model
+		// make sure Z updates
+		// bug: holding down and not moving moves the model
+		for (int i = 0; i < 3; ++i)
+		{
+			if (mouse_input[i])
+			{
+				translate[MODEL][i] += x_change[i] * 0.005;
+				m_cube.cube_coordinateSystem.origin[i] = translate[MODEL][i];
+			}
+		}
+		generateTranslationMatrix(true);
+	}
+	else if (transform_mode == 5)
+	{
+		// scale model
+		for (int i = 0; i < 3; ++i)
+		{
+			if (mouse_input[i])
+			{
+				scale[i] += x_change[i] * 0.001;
+			}
+		}
+		generateScaleMatrix();
+	}
+	else if (transform_mode == 6)
+	{
+		// VIEWPORT
+	}
+	M = m_translate[MODEL] * m_rotate[MODEL][0] * m_rotate[MODEL][1] * m_rotate[MODEL][2] * m_scale;
+}
 //----------------------------------------------------------------------------------------
 /*
  * Event handler.  Handles cursor entering the window area events.
@@ -716,6 +737,7 @@ bool A2::mouseMoveEvent(
 				if (prev_x[i] != -1)
 				{
 					x_change[i] = prev_x[i] - xPos;
+					updateTransformations();
 				}
 				else
 				{
@@ -754,7 +776,6 @@ bool A2::mouseButtonInputEvent(
 	else if (actions == RELEASE)
 	{
 		mouse_input[button] = false;
-		updated[button] = true;
 		prev_x[button] = -1;
 		x_change[button] = 0;
 	}
