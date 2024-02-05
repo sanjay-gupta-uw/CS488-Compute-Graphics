@@ -19,164 +19,167 @@ const GLsizei kMaxVertices = 1000;
 class VertexData
 {
 public:
-	VertexData();
+  VertexData();
 
-	std::vector<glm::vec2> positions;
-	std::vector<glm::vec3> colours;
-	GLuint index;
-	GLsizei numVertices;
+  std::vector<glm::vec2> positions;
+  std::vector<glm::vec3> colours;
+  GLuint index;
+  GLsizei numVertices;
 };
 
 class CoordinateSystem3D
 {
 public:
-	CoordinateSystem3D(){};
-	CoordinateSystem3D(glm::vec3 origin, glm::vec3 x, glm::vec3 y, glm::vec3 z);
+  CoordinateSystem3D(){};
+  CoordinateSystem3D(glm::vec3 origin, glm::vec3 x, glm::vec3 y, glm::vec3 z);
 
-	glm::vec3 origin;
-	glm::vec3 x;
-	glm::vec3 y;
-	glm::vec3 z;
+  glm::vec3 origin;
+  glm::vec3 x;
+  glm::vec3 y;
+  glm::vec3 z;
 };
 
 class Cube
 {
 public:
-	// apply rotation/translation to the coordinate system
-	// apply scaling to the vertices
-	CoordinateSystem3D cube_coordinateSystem = CoordinateSystem3D(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	glm::vec3 cube_vertices[8] = {
-		glm::vec3(-1.0f, -1.0f, -1.0f),
-		glm::vec3(-1.0f, -1.0f, 1.0f),
-		glm::vec3(1.0f, -1.0f, 1.0f),
-		glm::vec3(1.0f, -1.0f, -1.0f),
+  // apply rotation/translation to the coordinate system
+  // apply scaling to the vertices
+  CoordinateSystem3D cube_coordinateSystem = CoordinateSystem3D(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  glm::vec3 cube_vertices[8] = {
+      glm::vec3(-1.0f, -1.0f, -1.0f),
+      glm::vec3(-1.0f, -1.0f, 1.0f),
+      glm::vec3(1.0f, -1.0f, 1.0f),
+      glm::vec3(1.0f, -1.0f, -1.0f),
 
-		glm::vec3(-1.0f, 1.0f, -1.0f),
-		glm::vec3(-1.0f, 1.0f, 1.0f),
-		glm::vec3(1.0f, 1.0f, 1.0f),
-		glm::vec3(1.0f, 1.0f, -1.0f),
-	};
-	void reset()
-	{
-		cube_coordinateSystem = CoordinateSystem3D(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	}
+      glm::vec3(-1.0f, 1.0f, -1.0f),
+      glm::vec3(-1.0f, 1.0f, 1.0f),
+      glm::vec3(1.0f, 1.0f, 1.0f),
+      glm::vec3(1.0f, 1.0f, -1.0f),
+  };
+  void reset()
+  {
+    cube_coordinateSystem = CoordinateSystem3D(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  }
 };
 
 class Camera
 {
 public:
-	void updateCoordinateSystem();
-	int computeOutcode(glm::vec4 &v)
-	{
-		int outcode = 0;
-		// camera looks down negative z axis
-		if (v.z > near)
-			outcode |= 1;
+  void updateCoordinateSystem();
+  int computeOutcode(glm::vec4 &v)
+  {
+    int outcode = 0;
+    // camera looks down negative z axis
+    if (v.z > near)
+      outcode |= 1;
 
-		return outcode;
-	};
+    return outcode;
+  };
 
-	Camera(){};
-	Camera(glm::vec3 position, glm::vec3 lookAt, glm::vec3 up, float near, float far, float fov);
+  Camera(){};
+  Camera(glm::vec3 position, glm::vec3 lookAt, glm::vec3 up, float near, float far, float fov);
 
-	glm::vec3 position;
-	glm::vec3 lookAt;
-	glm::vec3 up;
-	float near;
-	float far;
-	float fov;
+  glm::vec3 position;
+  glm::vec3 lookAt;
+  glm::vec3 up;
+  float near;
+  float far;
+  float fov;
 
-	CoordinateSystem3D camera_coordinateSystem;
+  CoordinateSystem3D camera_coordinateSystem;
 };
 
 class A2 : public CS488Window
 {
 public:
-	A2();
-	virtual ~A2();
+  A2();
+  virtual ~A2();
 
 protected:
-	virtual void init() override;
-	virtual void appLogic() override;
-	virtual void guiLogic() override;
-	virtual void draw() override;
-	virtual void cleanup() override;
+  virtual void init() override;
+  virtual void appLogic() override;
+  virtual void guiLogic() override;
+  virtual void draw() override;
+  virtual void cleanup() override;
 
-	virtual bool cursorEnterWindowEvent(int entered) override;
-	virtual bool mouseMoveEvent(double xPos, double yPos) override;
-	virtual bool mouseButtonInputEvent(int button, int actions, int mods) override;
-	virtual bool mouseScrollEvent(double xOffSet, double yOffSet) override;
-	virtual bool windowResizeEvent(int width, int height) override;
-	virtual bool keyInputEvent(int key, int action, int mods) override;
+  virtual bool cursorEnterWindowEvent(int entered) override;
+  virtual bool mouseMoveEvent(double xPos, double yPos) override;
+  virtual bool mouseButtonInputEvent(int button, int actions, int mods) override;
+  virtual bool mouseScrollEvent(double xOffSet, double yOffSet) override;
+  virtual bool windowResizeEvent(int width, int height) override;
+  virtual bool keyInputEvent(int key, int action, int mods) override;
 
-	void createShaderProgram();
-	void enableVertexAttribIndices();
-	void generateVertexBuffers();
-	void mapVboDataToVertexAttributeLocation();
-	void uploadVertexDataToVbos();
+  void createShaderProgram();
+  void enableVertexAttribIndices();
+  void generateVertexBuffers();
+  void mapVboDataToVertexAttributeLocation();
+  void uploadVertexDataToVbos();
 
-	void initLineData();
+  void initLineData();
 
-	void setLineColour(const glm::vec3 &colour);
+  void setLineColour(const glm::vec3 &colour);
 
-	void drawLine(
-		const glm::vec3 &v0,
-		const glm::vec3 &v1,
-		bool viewport);
+  void drawLine(
+      const glm::vec3 &v0,
+      const glm::vec3 &v1,
+      bool viewport);
 
-	void generateScaleMatrix();
-	void generateRotationMatrix(bool isModel);
-	void generateTranslationMatrix(bool isModel);
-	void generateViewMatrix();
-	void generatePerspectiveMatrix();
+  void generateScaleMatrix();
+  void generateRotationMatrix(bool isModel);
+  void generateTranslationMatrix(bool isModel);
+  void generateViewMatrix();
+  void generatePerspectiveMatrix();
 
-	bool clipNearPlane(glm::vec4 &v0,
-					   glm::vec4 &v1);
+  bool clipNearPlane(glm::vec4 &v0,
+                     glm::vec4 &v1);
 
-	void updateTransformations();
+  void A2::clipCube(glm::vec4 &P0,
+                    glm::vec4 &P1);
 
-	void reset();
+  void updateTransformations();
 
-	ShaderProgram m_shader;
+  void reset();
 
-	glm::mat4 F;
-	glm::mat4 P;
-	glm::mat4 V;
-	glm::mat4 M;
-	glm::mat4 M_viewport;
+  ShaderProgram m_shader;
 
-	glm::mat4 m_translate[2];
-	glm::mat4 m_rotate[2][3];
-	glm::mat4 m_scale;
+  glm::mat4 F;
+  glm::mat4 P;
+  glm::mat4 V;
+  glm::mat4 M;
+  glm::mat4 M_viewport;
 
-	float scale[3];
-	float rotate[2][3];
-	float translate[2][3];
+  glm::mat4 m_translate[2];
+  glm::mat4 m_rotate[2][3];
+  glm::mat4 m_scale;
 
-	GLuint m_vao;			// Vertex Array Object
-	GLuint m_vbo_positions; // Vertex Buffer Object
-	GLuint m_vbo_colours;	// Vertex Buffer Object
+  float scale[3];
+  float rotate[2][3];
+  float translate[2][3];
 
-	VertexData m_vertexData;
+  GLuint m_vao;           // Vertex Array Object
+  GLuint m_vbo_positions; // Vertex Buffer Object
+  GLuint m_vbo_colours;   // Vertex Buffer Object
 
-	glm::vec3 m_currentLineColour;
+  VertexData m_vertexData;
 
-	CoordinateSystem3D world_coordinateSystem;
-	Cube m_cube;
-	Camera m_camera;
+  glm::vec3 m_currentLineColour;
 
-	int transform_mode = 3;
+  CoordinateSystem3D world_coordinateSystem;
+  Cube m_cube;
+  Camera m_camera;
 
-	bool translate_model = false;
-	bool mouse_input[3] = {false, false, false};
-	double x_change[3] = {0, 0, 0}; // need additional vars for mid/right
-	double prev_x[3] = {-1, -1, -1};
+  int transform_mode = 3;
 
-	int viewportHeight;
-	int viewportWidth;
+  bool translate_model = false;
+  bool mouse_input[3] = {false, false, false};
+  double x_change[3] = {0, 0, 0}; // need additional vars for mid/right
+  double prev_x[3] = {-1, -1, -1};
 
-	int window_width;
-	int window_height;
+  int viewportHeight;
+  int viewportWidth;
 
-	void drawViewportOutline();
+  int window_width;
+  int window_height;
+
+  void drawViewportOutline();
 };
