@@ -9,9 +9,9 @@ using namespace std;
 #include <imgui/imgui.h>
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/io.hpp>
-#include <glm/gtc/quaternion.hpp>
 
 using namespace glm;
 
@@ -31,44 +31,54 @@ const int PRESS = 1;
 //----------------------------------------------------------------------------------------
 // Constructor
 VertexData::VertexData()
-    : numVertices(0),
-      index(0)
+	: numVertices(0),
+	  index(0)
 {
-  positions.resize(kMaxVertices);
-  colours.resize(kMaxVertices);
-}
-
-CoordinateSystem3D::CoordinateSystem3D(vec3 origin, vec3 x, vec3 y, vec3 z)
-    : origin(origin),
-      x(x),
-      y(y),
-      z(z)
-{
+	positions.resize(kMaxVertices);
+	colours.resize(kMaxVertices);
 }
 
 void Camera::updateCoordinateSystem()
 {
-  vec3 v_z = normalize(position - lookAt);
-  vec3 v_x = normalize(cross(up, v_z));
-  vec3 v_y = cross(v_z, v_x);
+	vec3 v_z = normalize(vec3(position) - vec3(lookAt));
+	vec3 v_x = normalize(cross(vec3(up), v_z));
+	vec3 v_y = cross(v_z, v_x);
 
-  camera_coordinateSystem = CoordinateSystem3D(position, v_x, v_y, v_z);
+	camera_coordinateSystem.origin = position;
+	camera_coordinateSystem.x = vec4(v_x, 0.0f);
+	camera_coordinateSystem.y = vec4(v_y, 0.0f);
+	camera_coordinateSystem.z = vec4(v_z, 0.0f);
 }
 
-Camera::Camera(vec3 position, vec3 lookAt, vec3 up, float near, float far, float fov)
-    : position(position),
-      lookAt(lookAt),
-      up(up),
-      near(near),
-      far(far),
-      fov(fov)
+Camera::Camera(vec4 position, vec4 lookAt, vec4 up, float near, float far, float fov)
+	: position(position),
+	  lookAt(lookAt),
+	  up(up),
+	  near(near),
+	  far(far),
+	  fov(fov)
 {
-  updateCoordinateSystem();
+	updateCoordinateSystem();
 }
+
+void printM(mat4 &M, char *name)
+{
+	cout << name << ":" << endl;
+	for (int i = 0; i < 4; ++i)
+	{
+		for (int j = 0; j < 4; ++j)
+		{
+			cout << M[j][i] << " ";
+		}
+		cout << endl;
+	}
+	cout << endl;
+}
+
 //----------------------------------------------------------------------------------------
 // Constructor
 A2::A2()
-    : m_currentLineColour(vec3(0.0f))
+	: m_currentLineColour(vec3(0.0f))
 {
 }
 
@@ -84,428 +94,505 @@ A2::~A2()
  */
 void A2::init()
 {
-  // Set the background colour.
-  glClearColor(0.3, 0.5, 0.7, 1.0);
+	// Set the background colour.
+	glClearColor(0.3, 0.5, 0.7, 1.0);
 
-  createShaderProgram();
+	createShaderProgram();
 
-  glGenVertexArrays(1, &m_vao);
+	glGenVertexArrays(1, &m_vao);
 
-  enableVertexAttribIndices();
+	enableVertexAttribIndices();
 
-  generateVertexBuffers();
+	generateVertexBuffers();
 
-  mapVboDataToVertexAttributeLocation();
-  world_coordinateSystem = CoordinateSystem3D(vec3(0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f));
+	mapVboDataToVertexAttributeLocation();
 
-  // Set up the camera in a default position.
-  // position, lookat, up, near, far, fov
-  m_camera = Camera(vec3(5.0f, 5.0f, 5.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), -8.0f, -10.0f, 120);
+	// Set up the camera in a default position.
+	// position, lookat, up, near, far, fov
+	m_camera = Camera(vec4(2.0f, 2.0f, -5.0f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 0.0f), -3.0f, 20.0f, 120);
 
-  for (int i = 0; i < 2; ++i)
-  {
-    for (int j = 0; j < 3; ++j)
-    {
-      translate[i][j] = 0.0f;
-      rotate[i][j] = 0.0f;
-      scale[j] = 0.25f;
-    }
-  }
+	for (int i = 0; i < 2; ++i)
+	{
+		for (int j = 0; j < 3; ++j)
+		{
+			translate[i][j] = 0.0f;
+			rotate[i][j] = 0.0f;
+			scale[j] = 1.0f;
+		}
+	}
 
-  // Model:
-  generateScaleMatrix();
-  generateRotationMatrix(true);
-  generateTranslationMatrix(true);
+	// Model:
+	generateScaleMatrix();
+	generateRotationMatrix(true);
+	generateTranslationMatrix(true);
 
-  // View:
-  generateRotationMatrix(false);
-  generateTranslationMatrix(false);
-  generateViewMatrix();
-  generatePerspectiveMatrix();
+	// View:
+	generateViewMatrix();
+	generatePerspectiveMatrix();
 
-  updateTransformations();
+	// updateTransformations();
+	M_model = m_translate[MODEL] * m_rotate[MODEL][0] * m_rotate[MODEL][1] * m_rotate[MODEL][2];
 
-  M_viewport = mat4(1.0f);
+	M_viewport = mat4(1.0f);
 }
+void A2::reset()
+{
+	m_cube.reset();
+	// setup variable to track initial camera state
+	m_camera = Camera(vec4(2.0f, 2.0f, -5.0f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 0.0f), -3.0f, 20.0f, 120);
 
+	for (int i = 0; i < 2; ++i)
+	{
+		for (int j = 0; j < 3; ++j)
+		{
+			translate[i][j] = 0.0f;
+			rotate[i][j] = 0.0f;
+			scale[j] = 1.0f;
+		}
+	}
+
+	// Model:
+	generateScaleMatrix();
+	generateRotationMatrix(true);
+	generateTranslationMatrix(true);
+
+	// View:
+	generateViewMatrix();
+	generatePerspectiveMatrix();
+
+	// updateTransformations();
+	M_model = m_translate[MODEL] * m_rotate[MODEL][0] * m_rotate[MODEL][1] * m_rotate[MODEL][2];
+
+	transform_mode = 3;
+}
 void A2::generateScaleMatrix()
 {
-  m_scale = {
-      vec4(scale[LOCAL_X_AXIS], 0.0f, 0.0f, 0.0f),
-      vec4(0.0f, scale[LOCAL_Y_AXIS], 0.0f, 0.0f),
-      vec4(0.0f, 0.0f, scale[LOCAL_Z_AXIS], 0.0f),
-      vec4(0.0f, 0.0f, 0.0f, 1.0f)};
+	m_scale = {
+		vec4(scale[LOCAL_X_AXIS], 0.0f, 0.0f, 0.0f),
+		vec4(0.0f, scale[LOCAL_Y_AXIS], 0.0f, 0.0f),
+		vec4(0.0f, 0.0f, scale[LOCAL_Z_AXIS], 0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f)};
 }
 
 void A2::generateRotationMatrix(bool isModel)
 {
-  CoordinateSystem3D coor_system = isModel ? m_cube.cube_coordinateSystem : m_camera.camera_coordinateSystem;
-  int MODE = isModel ? MODEL : VIEW;
+	CoordinateSystem3D coor_system = isModel ? m_cube.cube_coordinateSystem : m_camera.camera_coordinateSystem;
+	int MODE = isModel ? MODEL : VIEW;
 
-  float x_rad = radians(rotate[MODE][LOCAL_X_AXIS]);
-  float y_rad = radians(rotate[MODE][LOCAL_Y_AXIS]);
-  float z_rad = radians(rotate[MODE][LOCAL_Z_AXIS]);
+	float x_rad = radians(rotate[MODE][LOCAL_X_AXIS]);
+	float y_rad = radians(rotate[MODE][LOCAL_Y_AXIS]);
+	float z_rad = radians(rotate[MODE][LOCAL_Z_AXIS]);
 
-  m_rotate[MODE][LOCAL_X_AXIS] = {
-      vec4(1.0f, 0.0f, 0.0f, 0.0f),
-      vec4(0.0f, cos(x_rad), sin(x_rad), 0.0f),
-      vec4(0.0f, -sin(x_rad), cos(x_rad), 0.0f),
-      vec4(0.0f, 0.0f, 0.0f, 1.0f),
-  };
+	m_rotate[MODE][LOCAL_Z_AXIS] = {
+		vec4(cos(z_rad), sin(z_rad), 0.0f, 0.0f),
+		vec4(-sin(z_rad), cos(z_rad), 0.0f, 0.0f),
+		vec4(0.0f, 0.0f, 1.0f, 0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f),
+	};
 
-  m_rotate[MODE][LOCAL_Y_AXIS] = {
-      vec4(cos(y_rad), 0.0f, -sin(y_rad), 0.0f),
-      vec4(0.0f, 1.0f, 0.0f, 0.0f),
-      vec4(sin(y_rad), 0.0f, cos(y_rad), 0.0f),
-      vec4(0.0f, 0.0f, 0.0f, 1.0f),
-  };
+	m_rotate[MODE][LOCAL_X_AXIS] = {
+		vec4(1.0f, 0.0f, 0.0f, 0.0f),
+		vec4(0.0f, cos(x_rad), sin(x_rad), 0.0f),
+		vec4(0.0f, -sin(x_rad), cos(x_rad), 0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f),
+	};
 
-  m_rotate[MODE][LOCAL_Z_AXIS] = {
-      vec4(cos(z_rad), sin(z_rad), 0.0f, 0.0f),
-      vec4(-sin(z_rad), cos(z_rad), 0.0f, 0.0f),
-      vec4(0.0f, 0.0f, 1.0f, 0.0f),
-      vec4(0.0f, 0.0f, 0.0f, 1.0f),
-  };
+	m_rotate[MODE][LOCAL_Y_AXIS] = {
+		vec4(cos(y_rad), 0.0f, -sin(y_rad), 0.0f),
+		vec4(0.0f, 1.0f, 0.0f, 0.0f),
+		vec4(sin(y_rad), 0.0f, cos(y_rad), 0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f),
+	};
 
-  if (!isModel)
-  {
-    vec3 axis[3] = {coor_system.x, coor_system.y, coor_system.z};
-    mat4 R = m_rotate[VIEW][0] * m_rotate[VIEW][1] * m_rotate[VIEW][2];
-    m_camera.camera_coordinateSystem.x = vec3(R * vec4(coor_system.x, 1.0f));
-    m_camera.camera_coordinateSystem.y = vec3(R * vec4(coor_system.y, 1.0f));
-    m_camera.camera_coordinateSystem.z = vec3(R * vec4(coor_system.z, 1.0f));
-  }
+	if (!isModel)
+	{
+		m_camera.lookAt = (m_rotate[VIEW][0] * m_rotate[VIEW][1] * m_rotate[VIEW][2]) * m_camera.lookAt;
+		m_camera.updateCoordinateSystem();
+	}
 }
 
 void A2::generateTranslationMatrix(bool isModel)
 {
-  int MODE = MODEL;
-  vec3 origin = isModel ? m_cube.cube_coordinateSystem.origin : m_camera.camera_coordinateSystem.origin;
+	int MODE = isModel ? MODEL : VIEW;
+	m_translate[MODE] = mat4(1.0f);
+	m_translate[MODE][3] = vec4(translate[MODE][0], translate[MODE][1], translate[MODE][2], 1.0f);
 
-  if (!isModel)
-  {
-    MODE = VIEW;
-    origin *= -1;
-  }
+	m_translate[MODE] = mat4(1.0f);
+	m_translate[MODE] = glm::translate(m_translate[MODE], vec3(translate[MODE][0], translate[MODE][1], translate[MODE][2]));
 
-  m_translate[MODE] = mat4(1.0f);
-  m_translate[MODE][3] = vec4(origin, 1.0f);
+	if (!isModel)
+	{
+		for (int i = 0; i < 3; ++i)
+		{
+			m_camera.position[i] += translate[MODE][i];
+		}
+		m_camera.updateCoordinateSystem();
+	}
 }
 
 void A2::generateViewMatrix()
 {
-  vec3 camera_x_axis = m_camera.camera_coordinateSystem.x;
-  vec3 camera_y_axis = m_camera.camera_coordinateSystem.y;
-  vec3 camera_z_axis = m_camera.camera_coordinateSystem.z;
+	vec4 pos = m_camera.position;
+	vec4 x_a = m_camera.camera_coordinateSystem.x;
+	vec4 y_a = m_camera.camera_coordinateSystem.y;
+	vec4 z_a = m_camera.camera_coordinateSystem.z;
 
-  mat4 R = {
-      vec4(camera_x_axis.x, camera_y_axis.x, camera_z_axis.x, 0.0f),
-      vec4(camera_x_axis.y, camera_y_axis.y, camera_z_axis.y, 0.0f),
-      vec4(camera_x_axis.z, camera_y_axis.z, camera_z_axis.z, 0.0f),
-      vec4(0.0f, 0.0f, 0.0f, 1.0f)};
+	mat4 R = {
+		vec4(x_a.x, y_a.x, z_a.x, 0.0f),
+		vec4(x_a.y, y_a.y, z_a.y, 0.0f),
+		vec4(x_a.z, y_a.z, z_a.z, 0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f),
+	};
 
-  V = R * m_translate[VIEW];
+	mat4 T = {
+		vec4(1.0f, 0.0f, 0.0f, 0.0f),
+		vec4(0.0f, 1.0f, 0.0f, 0.0f),
+		vec4(0.0f, 0.0f, 1.0f, 0.0f),
+		vec4(-pos.x, -pos.y, -pos.z, 1.0f),
+	};
+
+	V = R * T;
+
+	V = glm::lookAt(vec3(2.0f, 2.0f, -5.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f));
+}
+
+void A2::updateViewMatrix(mat4 &T)
+{
+	T = inverse(T);
+
+	V *= T;
 }
 
 void A2::generatePerspectiveMatrix()
 {
-  float theta = radians(m_camera.fov / 2);
-  P = {
-      vec4((float)((1 / tan(theta)) / (float)(viewportWidth / viewportHeight)), 0.0f, 0.0f, 0.0f),
-      vec4(0.0f, (float)(1 / tan(theta)), 0.0f, 0.0f),
-      vec4(0.0f, 0.0f, -(m_camera.far + m_camera.near) / (m_camera.near - m_camera.far), -1.0f),
-      vec4(0.0f, 0.0f, (-2 * m_camera.far * m_camera.near) / (m_camera.far - m_camera.near), 0.0f),
-  };
+	float theta = radians(m_camera.fov / 2);
+	P = {
+		vec4((float)((1 / tan(theta)) / (float)(viewportWidth / viewportHeight)), 0.0f, 0.0f, 0.0f),
+		vec4(0.0f, (float)(1 / tan(theta)), 0.0f, 0.0f),
+		vec4(0.0f, 0.0f, (m_camera.far + m_camera.near) / (m_camera.far - m_camera.near), 1),
+		vec4(0.0f, 0.0f, (-2 * m_camera.far * m_camera.near) / (m_camera.far - m_camera.near), 0.0f),
+	};
 }
 
-void A2::reset()
-{
-  m_cube.reset();
-  // setup variable to track initial camera state
-  m_camera = Camera(vec3(5.0f, 5.0f, 5.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), -8.0f, -10.0f, 120);
-
-  for (int i = 0; i < 2; ++i)
-  {
-    for (int j = 0; j < 3; ++j)
-    {
-      translate[i][j] = 0.0f;
-      rotate[i][j] = 0.0f;
-      scale[j] = 0.25f;
-    }
-  }
-
-  // Model:
-  generateScaleMatrix();
-  generateRotationMatrix(true);
-  generateTranslationMatrix(true);
-
-  // View:
-  generateRotationMatrix(false);
-  generateTranslationMatrix(false);
-  generateViewMatrix();
-  generatePerspectiveMatrix();
-
-  updateTransformations();
-
-  transform_mode = 3;
-}
 //----------------------------------------------------------------------------------------
 void A2::createShaderProgram()
 {
-  m_shader.generateProgramObject();
-  m_shader.attachVertexShader(getAssetFilePath("VertexShader.vs").c_str());
-  m_shader.attachFragmentShader(getAssetFilePath("FragmentShader.fs").c_str());
-  m_shader.link();
+	m_shader.generateProgramObject();
+	m_shader.attachVertexShader(getAssetFilePath("VertexShader.vs").c_str());
+	m_shader.attachFragmentShader(getAssetFilePath("FragmentShader.fs").c_str());
+	m_shader.link();
 }
 
 //---------------------------------------------------------------------------------------- Spring 2020
 void A2::enableVertexAttribIndices()
 {
-  glBindVertexArray(m_vao);
+	glBindVertexArray(m_vao);
 
-  // Enable the attribute index location for "position" when rendering.
-  GLint positionAttribLocation = m_shader.getAttribLocation("position");
-  glEnableVertexAttribArray(positionAttribLocation);
+	// Enable the attribute index location for "position" when rendering.
+	GLint positionAttribLocation = m_shader.getAttribLocation("position");
+	glEnableVertexAttribArray(positionAttribLocation);
 
-  // Enable the attribute index location for "colour" when rendering.
-  GLint colourAttribLocation = m_shader.getAttribLocation("colour");
-  glEnableVertexAttribArray(colourAttribLocation);
+	// Enable the attribute index location for "colour" when rendering.
+	GLint colourAttribLocation = m_shader.getAttribLocation("colour");
+	glEnableVertexAttribArray(colourAttribLocation);
 
-  // Restore defaults
-  glBindVertexArray(0);
+	// Restore defaults
+	glBindVertexArray(0);
 
-  CHECK_GL_ERRORS;
+	CHECK_GL_ERRORS;
 }
 
 //----------------------------------------------------------------------------------------
 void A2::generateVertexBuffers()
 {
-  // Generate a vertex buffer to store line vertex positions
-  {
-    glGenBuffers(1, &m_vbo_positions);
+	// Generate a vertex buffer to store line vertex positions
+	{
+		glGenBuffers(1, &m_vbo_positions);
 
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo_positions);
+		glBindBuffer(GL_ARRAY_BUFFER, m_vbo_positions);
 
-    // Set to GL_DYNAMIC_DRAW because the data store will be modified frequently.
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vec2) * kMaxVertices, nullptr,
-                 GL_DYNAMIC_DRAW);
+		// Set to GL_DYNAMIC_DRAW because the data store will be modified frequently.
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vec2) * kMaxVertices, nullptr,
+					 GL_DYNAMIC_DRAW);
 
-    // Unbind the target GL_ARRAY_BUFFER, now that we are finished using it.
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+		// Unbind the target GL_ARRAY_BUFFER, now that we are finished using it.
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    CHECK_GL_ERRORS;
-  }
+		CHECK_GL_ERRORS;
+	}
 
-  // Generate a vertex buffer to store line colors
-  {
-    glGenBuffers(1, &m_vbo_colours);
+	// Generate a vertex buffer to store line colors
+	{
+		glGenBuffers(1, &m_vbo_colours);
 
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo_colours);
+		glBindBuffer(GL_ARRAY_BUFFER, m_vbo_colours);
 
-    // Set to GL_DYNAMIC_DRAW because the data store will be modified frequently.
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * kMaxVertices, nullptr,
-                 GL_DYNAMIC_DRAW);
+		// Set to GL_DYNAMIC_DRAW because the data store will be modified frequently.
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * kMaxVertices, nullptr,
+					 GL_DYNAMIC_DRAW);
 
-    // Unbind the target GL_ARRAY_BUFFER, now that we are finished using it.
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+		// Unbind the target GL_ARRAY_BUFFER, now that we are finished using it.
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    CHECK_GL_ERRORS;
-  }
+		CHECK_GL_ERRORS;
+	}
 }
 
 //----------------------------------------------------------------------------------------
 void A2::mapVboDataToVertexAttributeLocation()
 {
-  // Bind VAO in order to record the data mapping.
-  glBindVertexArray(m_vao);
+	// Bind VAO in order to record the data mapping.
+	glBindVertexArray(m_vao);
 
-  // Tell GL how to map data from the vertex buffer "m_vbo_positions" into the
-  // "position" vertex attribute index for any bound shader program.
-  glBindBuffer(GL_ARRAY_BUFFER, m_vbo_positions);
-  GLint positionAttribLocation = m_shader.getAttribLocation("position");
-  glVertexAttribPointer(positionAttribLocation, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+	// Tell GL how to map data from the vertex buffer "m_vbo_positions" into the
+	// "position" vertex attribute index for any bound shader program.
+	glBindBuffer(GL_ARRAY_BUFFER, m_vbo_positions);
+	GLint positionAttribLocation = m_shader.getAttribLocation("position");
+	glVertexAttribPointer(positionAttribLocation, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-  // Tell GL how to map data from the vertex buffer "m_vbo_colours" into the
-  // "colour" vertex attribute index for any bound shader program.
-  glBindBuffer(GL_ARRAY_BUFFER, m_vbo_colours);
-  GLint colorAttribLocation = m_shader.getAttribLocation("colour");
-  glVertexAttribPointer(colorAttribLocation, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+	// Tell GL how to map data from the vertex buffer "m_vbo_colours" into the
+	// "colour" vertex attribute index for any bound shader program.
+	glBindBuffer(GL_ARRAY_BUFFER, m_vbo_colours);
+	GLint colorAttribLocation = m_shader.getAttribLocation("colour");
+	glVertexAttribPointer(colorAttribLocation, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
-  //-- Unbind target, and restore default values:
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
+	//-- Unbind target, and restore default values:
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
 
-  CHECK_GL_ERRORS;
+	CHECK_GL_ERRORS;
 }
 
 //---------------------------------------------------------------------------------------
 void A2::initLineData()
 {
-  m_vertexData.numVertices = 0;
-  m_vertexData.index = 0;
+	m_vertexData.numVertices = 0;
+	m_vertexData.index = 0;
 }
 
 //---------------------------------------------------------------------------------------
 void A2::setLineColour(
-    const glm::vec3 &colour)
+	const glm::vec3 &colour)
 {
-  m_currentLineColour = colour;
+	m_currentLineColour = colour;
 }
 
 bool A2::clipNearPlane(glm::vec4 &P0,
-                       glm::vec4 &P1)
+					   glm::vec4 &P1)
 {
-  bool valid = false;
-  bool print = false;
-  if (P0.z < P1.z)
-  {
-    std::swap(P0, P1);
-  }
-  int outcode_0 = m_camera.computeOutcode(P0);
-  int outcode_1 = m_camera.computeOutcode(P1);
+	bool valid = false;
+	if (P0.z < P1.z)
+	{
+		std::swap(P0, P1);
+	}
+	int outcode_0 = m_camera.computeOutcode(P0);
+	int outcode_1 = m_camera.computeOutcode(P1);
 
-  // if (P0.z > m_camera.near && P1.z < m_camera.near)
-  // {
-  // 	cout << "P0.z: " << P0.z << ", P1.z: " << P1.z << endl;
-  // 	cout << "outcode_0: " << outcode_0 << endl;
-  // 	cout << "outcode_1: " << outcode_1 << endl;
-  // 	cout << (outcode_0 | outcode_1) << endl;
-  // 	cout << (outcode_0 & outcode_1) << endl;
-  // 	print = true;
-  // }
-  if ((outcode_0 | outcode_1) == 0)
-  {
-    // trivial accept
-    valid = true;
-  }
-  else if ((outcode_0 & outcode_1) != 0)
-  {
-    // trivial reject
-  }
-  else
-  {
-    // cout << "clipping " << P0.x << "," << P0.y << "," << P0.z << " to near plane." << endl;
-    int t = (m_camera.near - P0.z) / (P1.z - P0.z);
-    P0.x = P0.x + t * (P1.x - P0.x);
-    P0.y = P0.y + t * (P1.y - P0.y);
-    P0.z = m_camera.near;
-    // cout << "RES: " << P0.x << "," << P0.y << "," << P0.z << endl;
-    valid = true;
-    print = true;
-  }
-  // if (print)
-  // 	cout << endl;
-  return valid;
+	if ((outcode_0 | outcode_1) == 0)
+	{
+		// trivial accept
+		valid = true;
+	}
+	else if ((outcode_0 & outcode_1) != 0)
+	{
+		// trivial reject
+	}
+	else
+	{
+		int t = (m_camera.near - P0.z) / (P1.z - P0.z);
+		P0.x = P0.x + t * (P1.x - P0.x);
+		P0.y = P0.y + t * (P1.y - P0.y);
+		P0.z = m_camera.near;
+		valid = true;
+	}
+	return valid;
 }
 
-void A2::clipCube(glm::vec4 &P0,
-                  glm::vec4 &P1)
+bool A2::clipCube(glm::vec4 &P0,
+				  glm::vec4 &P1)
 {
-  int outcode[2] = {0, 0};
-  // normalize points:
-  float w[2] = {P0.w, P1.w};
-  vec3 points[2] = {vec3(P0.x / w[0], P0.y / w[0], P0.z / w[0]), vec3(P1.x / w[1], P1.y / w[1], P1.z / w[1])};
-  float x;
-  float y;
-  float z;
+	int outcode[2] = {0, 0};
+	// normalize points to homogenous coordinates:
+	P0 = P0 / P0.w;
+	P1 = P1 / P1.w;
+	vec4 points[2] = {P0, P1};
+	float x;
+	float y;
+	float z;
+	float w;
 
-  for (int i = 0; i < 2; ++i)
-  {
-    float x = points[i].x;
-    float y = points[i].y;
-    float z = points[i].z;
-    if (x + w[i] < 0) // left
-    {
-      outcode[i] |= 1;
-    }
-    if (x - w[i] > 0) // right
-    {
-      outcode[i] |= 2;
-    }
-    if (y + w[i] < 0) // bottom
-    {
-      outcode[i] |= 4;
-    }
-    if (y - w[i] > 0) // top
-    {
-      outcode[i] |= 8;
-    }
-    if (z + w[i] < 0) // near
-    {
-      outcode[i] |= 16;
-    }
-    if (z - w[i] > 0) // far
-    {
-      outcode[i] |= 32;
-    }
-  }
-  cout << "outcode[0]: " << outcode[0] << endl;
-  cout << "outcode[1]: " << outcode[1] << endl;
+	for (int i = 0; i < 2; ++i)
+	{
+		float x = points[i].x;
+		float y = points[i].y;
+		float z = points[i].z;
+		float w = points[i].w;
+		if (x < -1) // left
+		{
+			outcode[i] |= 1;
+		}
+		if (x > 1) // right
+		{
+			outcode[i] |= 2;
+		}
+		if (y < -1) // bottom
+		{
+			outcode[i] |= 4;
+		}
+		if (y > 1) // top
+		{
+			outcode[i] |= 8;
+		}
+		if (z < -1) // near
+		{
+			outcode[i] |= 16;
+		}
+		if (z > 1) // far
+		{
+			outcode[i] |= 32;
+		}
+	}
+	if ((outcode[0] | outcode[1]) == 0)
+	{
+		// trivial accept
+		return true;
+	}
+	else if ((outcode[0] & outcode[1]) != 0)
+	{
+		// trivial reject
+		return false;
+	}
+	else
+	{
+		vec3 normals[6] = {
+			vec3(1.0f, 0.0f, 0.0f),	 // Left plane (x = -1 in NDC)
+			vec3(-1.0f, 0.0f, 0.0f), // Right plane (x = 1 in NDC)
+			vec3(0.0f, 1.0f, 0.0f),	 // Bottom plane (y = -1 in NDC)
+			vec3(0.0f, -1.0f, 0.0f), // Top plane (y = 1 in NDC)
+			vec3(0.0f, 0.0f, 1.0f),	 // Near plane (z = -1 in NDC)
+			vec3(0.0f, 0.0f, -1.0f), // Far plane (z = 1 in NDC)
+		};
+
+		int plane_codes[6] = {1, 2, 4, 8, 16, 32};
+
+		float t = 0;
+		float A = 0;
+		float B = 0;
+		float C = 0;
+		bool P0_is_outside = false;
+		for (int i = 0; i < 6; ++i)
+		{
+			vec4 out = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+			vec4 in = vec4(0.0f, 0.0f, 0.0f, 1.0f);
+			if ((outcode[0] & plane_codes[i]) == plane_codes[i])
+			{
+				// P0 is outside the plane
+				// P1 must be inside the plane
+				P0_is_outside = true;
+				out = P0;
+				in = P1;
+			}
+			else if ((outcode[1] & plane_codes[i]) == plane_codes[i])
+			{
+				// P1 is outside the plane
+				// P0 must be inside the plane
+				out = P1;
+				in = P0;
+			}
+			else
+			{
+				// both points are inside the plane
+				continue;
+			}
+
+			A = normals[i].x;
+			B = normals[i].y;
+			C = normals[i].z;
+
+			vec4 direction = in - out;
+
+			t = -(A * out.x + B * out.y + C * out.z + 1) / (A * direction.x + B * direction.y + C * direction.z);
+			if (t < 0 || t > 1)
+			{
+				cout << "t: " << t << endl;
+				continue;
+			}
+
+			vec4 intersection = out + t * direction;
+
+			if (P0_is_outside)
+			{
+				P0 = intersection;
+			}
+			else
+			{
+				P1 = intersection;
+			}
+			P0_is_outside = false;
+		}
+		return true;
+	}
+}
+
+array<vec2, 2> A2::getNDC(vec4 &P0, vec4 &P1)
+{
+
+	cout << "P0: " << P0 << endl;
+	cout << "P1: " << P1 << endl;
+
+	vec4 P0_model = M * m_scale * P0;
+	vec4 P1_model = M * m_scale * P1;
+
+	cout << "P0_model: " << P0_model << endl;
+	cout << "P1_model: " << P1_model << endl;
+
+	vec4 P0_view = V * P0_model;
+	vec4 P1_view = V * P1_model;
+	// clipping against near/far planes
+	cout << "P0_view: " << P0_view << endl;
+	cout << "P1_view: " << P1_view << endl;
+	bool res = clipNearPlane(P0_view, P1_view);
+	if (!res) // points are invalid after clipping
+	{
+		return {vec2(2.0f), vec2(2.0f)};
+	}
+	cout << "After clipping to near: " << endl;
+	cout << "P0_view: " << P0_view << endl;
+	cout << "P1_view: " << P1_view << endl;
+
+	vec4 V0_persp = P * P0_view;
+	vec4 V1_persp = P * P1_view;
+
+	cout << "V0_persp: " << V0_persp << endl;
+	cout << "V1_persp: " << V1_persp << endl;
+
+	// clip against normalized cube
+	res = clipCube(V0_persp, V1_persp);
+	if (!res)
+	{
+		return {vec2(2.0f), vec2(2.0f)};
+	}
+
+	cout << "After clipping to cube: " << endl;
+	cout << "V0_persp: " << V0_persp << endl;
+	cout << "V1_persp: " << V1_persp << endl;
+	return {vec2(V0_persp), vec2(V1_persp)};
 }
 
 //---------------------------------------------------------------------------------------
 void A2::drawLine(
-    const glm::vec3 &V0_, // Line Start (NDC coordinate)
-    const glm::vec3 &V1_, // Line End (NDC coordinate)
-    bool viewport = false)
+	const glm::vec2 &V0, // Line Start (NDC coordinate)
+	const glm::vec2 &V1	 // Line End (NDC coordinate)
+)
 {
-  vec2 V0;
-  vec2 V1;
-  if (viewport)
-  {
-    V0 = vec2(V0_);
-    V1 = vec2(V1_);
-  }
-  else
-  {
-    // apply transformations on V0, V1
-    // V = mat4(1.0f);
-    vec4 v0_trans = V * M * vec4(V0_, 1.0f);
-    vec4 v1_trans = V * M * vec4(V1_, 1.0f);
-    // vec4 v0_trans = M * vec4(V0_, 1.0f);
-    // vec4 v1_trans = M * vec4(V1_, 1.0f);
+	m_vertexData.positions[m_vertexData.index] = V0;
+	m_vertexData.colours[m_vertexData.index] = m_currentLineColour;
+	++m_vertexData.index;
+	m_vertexData.positions[m_vertexData.index] = V1;
+	m_vertexData.colours[m_vertexData.index] = m_currentLineColour;
+	++m_vertexData.index;
 
-    // clipping against near/far planes
-    bool res = clipNearPlane(v0_trans, v1_trans);
-    // points are invalid after clipping
-    if (!res)
-    {
-      return;
-    }
-    vec4 v0_perspect = P * v0_trans;
-    vec4 v1_perspect = P * v1_trans;
-    // clip against normalized cube
-
-    V0 = vec2(v0_perspect.x, v0_perspect.y);
-    V1 = vec2(v1_perspect.x, v1_perspect.y);
-  }
-
-  // apply transformations on V0, V1
-  m_vertexData.positions[m_vertexData.index] = V0;
-  m_vertexData.colours[m_vertexData.index] = m_currentLineColour;
-  ++m_vertexData.index;
-  m_vertexData.positions[m_vertexData.index] = V1;
-  m_vertexData.colours[m_vertexData.index] = m_currentLineColour;
-  ++m_vertexData.index;
-
-  m_vertexData.numVertices += 2;
-}
-
-void A2::drawViewportOutline()
-{
-  float margin_width_ndc = (float)(window_width - viewportWidth) / window_width;
-  float margin_height_ndc = (float)(window_height - viewportHeight) / window_height;
-
-  float left = -1.0f + margin_width_ndc;
-  float right = 1.0f - margin_width_ndc;
-  float bottom = -1.0f + margin_height_ndc;
-  float top = 1.0f - margin_height_ndc;
-
-  setLineColour(vec3(1.0f, 1.0f, 1.0f));
-  drawLine(vec3(left, bottom, 0.0f), vec3(right, bottom, 0.0f), true);
-  drawLine(vec3(right, bottom, 0.0f), vec3(right, top, 0.0f), true);
-  drawLine(vec3(right, top, 0.0f), vec3(left, top, 0.0f), true);
-  drawLine(vec3(left, top, 0.0f), vec3(left, bottom, 0.0f), true);
+	m_vertexData.numVertices += 2;
 }
 
 //----------------------------------------------------------------------------------------
@@ -514,129 +601,191 @@ void A2::drawViewportOutline()
  */
 void A2::appLogic()
 {
-  // Place per frame, application logic here ...
-  initLineData();
+	// Place per frame, application logic here ...
+	initLineData();
+	drawModel();
 
-  // draw cube gnomons
-  setLineColour(vec3(1.0f, 1.0f, 0.0f));
-  // drawLine(m_cube.cube_coordinateSystem.origin, m_cube.cube_coordinateSystem.origin + m_cube.cube_coordinateSystem.x);
-  drawLine(world_coordinateSystem.origin, world_coordinateSystem.x);
-  setLineColour(vec3(0.0f, 1.0f, 1.0f));
-  // drawLine(m_cube.cube_coordinateSystem.origin, m_cube.cube_coordinateSystem.origin + m_cube.cube_coordinateSystem.y);
-  drawLine(world_coordinateSystem.origin, world_coordinateSystem.y);
-  setLineColour(vec3(1.0f, 0.0f, 1.0f));
-  // drawLine(m_cube.cube_coordinateSystem.origin, m_cube.cube_coordinateSystem.origin + m_cube.cube_coordinateSystem.z);
-  drawLine(world_coordinateSystem.origin, world_coordinateSystem.z);
+	M = mat4(1.0f);
+	// draw world gnomons
+	vec4 points[4] = {
+		world_coordinateSystem.origin,
+		vec4(vec3(world_coordinateSystem.x), 1.0f),
+		vec4(vec3(world_coordinateSystem.y), 1.0f),
+		vec4(vec3(world_coordinateSystem.z), 1.0f),
+	};
 
-  // draw CUBE
-  setLineColour(vec3(1.0f, 0.7f, 0.8f));
-  int ct = 0;
-  for (int i = 0; i < 2; ++i)
-  {
-    drawLine(m_cube.cube_vertices[ct], m_cube.cube_vertices[ct + 1]);
-    drawLine(m_cube.cube_vertices[ct + 1], m_cube.cube_vertices[ct + 2]);
-    drawLine(m_cube.cube_vertices[ct + 2], m_cube.cube_vertices[ct + 3]);
-    drawLine(m_cube.cube_vertices[ct + 3], m_cube.cube_vertices[ct]);
-    ct += 4;
-  }
-  for (int i = 0; i < 4; ++i)
-  {
-    drawLine(m_cube.cube_vertices[i], m_cube.cube_vertices[i + 4]);
-  }
+	vec3 colours[3] = {
+		vec3(1.0f, 0.0f, 0.0f),
+		vec3(0.0f, 1.0f, 0.0f),
+		vec3(0.0f, 0.0f, 1.0f),
+	};
+	for (int i = 1; i < 4; ++i)
+	{
+		array<vec2, 2> p = getNDC(points[0], points[i]);
+		if (p[0].x > 1.0f)
+		{
+			continue;
+		}
+		setLineColour(colours[i - 1]);
+		drawLine(p[0], p[1]);
+	}
 
-  // M = mat4(1.0f);
-  // // draw world gnomons
-  // setLineColour(vec3(1.0f, 0.0f, 0.0f));
-  // drawLine(world_coordinateSystem.origin, world_coordinateSystem.x);
-  // setLineColour(vec3(0.0f, 1.0f, 0.0f));
-  // drawLine(world_coordinateSystem.origin, world_coordinateSystem.y);
-  // setLineColour(vec3(0.0f, 0.0f, 1.0f));
-  // drawLine(world_coordinateSystem.origin, world_coordinateSystem.z);
-
-  drawViewportOutline();
+	drawViewportOutline();
 }
 
+void A2::drawModel()
+{
+	M = M_model;
+	// draw CUBE
+	setLineColour(vec3(1.0f, 0.7f, 0.8f));
+	int ct = 0;
+	for (int i = 0; i < 2; ++i)
+	{
+		for (int j = 0; j < 4; ++j)
+		{
+			array<vec2, 2> points = getNDC(m_cube.cube_vertices[j], m_cube.cube_vertices[j + 1]);
+			cout << "points: " << points[0] << " " << points[1] << endl;
+			if (points[0].x > 1.0f)
+			{
+				continue;
+			}
+			drawLine(points[0], points[1]);
+			exit(0);
+		}
+		ct += 4;
+	}
+	for (int i = 0; i < 4; ++i)
+	{
+		array<vec2, 2> points = getNDC(m_cube.cube_vertices[i], m_cube.cube_vertices[i + 1]);
+		cout << "points: " << points[0] << " " << points[1] << endl;
+		if (points[0].x > 1.0f)
+		{
+			continue;
+		}
+		drawLine(points[0], points[1]);
+	}
+
+	// draw cube gnomons
+	vec4 points[4] = {
+		world_coordinateSystem.origin,
+		vec4(vec3(world_coordinateSystem.x), 1.0f),
+		vec4(vec3(world_coordinateSystem.y), 1.0f),
+		vec4(vec3(world_coordinateSystem.z), 1.0f),
+	};
+
+	vec3 colours[3] = {
+		vec3(1.0f, 1.0f, 0.0f),
+		vec3(0.0f, 1.0f, 1.0f),
+		vec3(1.0f, 0.0f, 1.0f),
+	};
+	for (int i = 1; i < 4; ++i)
+	{
+		array<vec2, 2> p = getNDC(points[0], points[i]);
+		if (p[0].x > 1.0f)
+		{
+			continue;
+		}
+		setLineColour(colours[i - 1]);
+		drawLine(p[0], p[1]);
+	}
+}
+
+void A2::drawViewportOutline()
+{
+	float margin_width_ndc = (float)(window_width - viewportWidth) / window_width;
+	float margin_height_ndc = (float)(window_height - viewportHeight) / window_height;
+
+	float left = -1.0f + margin_width_ndc;
+	float right = 1.0f - margin_width_ndc;
+	float bottom = -1.0f + margin_height_ndc;
+	float top = 1.0f - margin_height_ndc;
+
+	setLineColour(vec3(1.0f, 1.0f, 1.0f));
+	drawLine(vec2(left, bottom), vec2(right, bottom));
+	drawLine(vec2(right, bottom), vec2(right, top));
+	drawLine(vec2(right, top), vec2(left, top));
+	drawLine(vec2(left, top), vec2(left, bottom));
+}
 //----------------------------------------------------------------------------------------
 /*
  * Called once per frame, after appLogic(), but before the draw() method.
  */
 void A2::guiLogic()
 {
-  static bool firstRun(true);
-  if (firstRun)
-  {
-    ImGui::SetNextWindowPos(ImVec2(50, 50));
-    firstRun = false;
-  }
+	static bool firstRun(true);
+	if (firstRun)
+	{
+		ImGui::SetNextWindowPos(ImVec2(50, 50));
+		firstRun = false;
+	}
 
-  static bool showDebugWindow(true);
-  ImGuiWindowFlags windowFlags(ImGuiWindowFlags_AlwaysAutoResize);
-  float opacity(0.5f);
+	static bool showDebugWindow(true);
+	ImGuiWindowFlags windowFlags(ImGuiWindowFlags_AlwaysAutoResize);
+	float opacity(0.5f);
 
-  ImGui::Begin("Properties", &showDebugWindow, ImVec2(100, 100), opacity,
-               windowFlags);
+	ImGui::Begin("Properties", &showDebugWindow, ImVec2(100, 100), opacity,
+				 windowFlags);
 
-  const char *labels[7] = {
-      "Rotate View     (o)",
-      "Translate View  (e)",
-      "Perspective     (p)",
-      "Rotate Model    (r)",
-      "Translate Model (t)",
-      "Scale Model     (s)",
-      "Viewport        (v)"};
-  for (int i = 0; i < 7; ++i)
-  {
-    ImGui::PushID(i);
-    ImGui::Text("%s", labels[i]);
-    ImGui::SameLine();
-    if (ImGui::RadioButton("##Radio", &transform_mode, i))
-    {
-    }
-    ImGui::PopID();
-  }
+	const char *labels[7] = {
+		"Rotate View     (o)",
+		"Translate View  (e)",
+		"Perspective     (p)",
+		"Rotate Model    (r)",
+		"Translate Model (t)",
+		"Scale Model     (s)",
+		"Viewport        (v)"};
+	for (int i = 0; i < 7; ++i)
+	{
+		ImGui::PushID(i);
+		ImGui::Text("%s", labels[i]);
+		ImGui::SameLine();
+		if (ImGui::RadioButton("##Radio", &transform_mode, i))
+		{
+		}
+		ImGui::PopID();
+	}
 
-  if (ImGui::Button("Reset (a)"))
-  {
-    reset();
-  }
-  // Create Button, and check if it was clicked:
-  if (ImGui::Button("Quit Application (q)"))
-  {
-    glfwSetWindowShouldClose(m_window, GL_TRUE);
-  }
+	if (ImGui::Button("Reset (a)"))
+	{
+		reset();
+	}
+	// Create Button, and check if it was clicked:
+	if (ImGui::Button("Quit Application (q)"))
+	{
+		glfwSetWindowShouldClose(m_window, GL_TRUE);
+	}
 
-  ImGui::Text("Framerate: %.1f FPS", ImGui::GetIO().Framerate);
-  ImGui::Text("Near: %.2f", m_camera.near);
-  ImGui::SameLine();
-  ImGui::Text(", Far: %.2f", m_camera.far);
-  ImGui::SameLine();
-  ImGui::Text(", FOV: %.2f", m_camera.fov);
-  ImGui::End();
+	ImGui::Text("Framerate: %.1f FPS", ImGui::GetIO().Framerate);
+	ImGui::Text("Near: %.2f", m_camera.near);
+	ImGui::SameLine();
+	ImGui::Text(", Far: %.2f", m_camera.far);
+	ImGui::SameLine();
+	ImGui::Text(", FOV: %.2f", m_camera.fov);
+	ImGui::End();
 }
 
 //----------------------------------------------------------------------------------------
 void A2::uploadVertexDataToVbos()
 {
+	//-- Copy vertex position data into VBO, m_vbo_positions:
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, m_vbo_positions);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec2) * m_vertexData.numVertices,
+						m_vertexData.positions.data());
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  //-- Copy vertex position data into VBO, m_vbo_positions:
-  {
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo_positions);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec2) * m_vertexData.numVertices,
-                    m_vertexData.positions.data());
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+		CHECK_GL_ERRORS;
+	}
 
-    CHECK_GL_ERRORS;
-  }
+	//-- Copy vertex colour data into VBO, m_vbo_colours:
+	{
+		glBindBuffer(GL_ARRAY_BUFFER, m_vbo_colours);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec3) * m_vertexData.numVertices,
+						m_vertexData.colours.data());
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-  //-- Copy vertex colour data into VBO, m_vbo_colours:
-  {
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo_colours);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vec3) * m_vertexData.numVertices,
-                    m_vertexData.colours.data());
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    CHECK_GL_ERRORS;
-  }
+		CHECK_GL_ERRORS;
+	}
 }
 
 //----------------------------------------------------------------------------------------
@@ -645,18 +794,18 @@ void A2::uploadVertexDataToVbos()
  */
 void A2::draw()
 {
-  uploadVertexDataToVbos();
+	uploadVertexDataToVbos();
 
-  glBindVertexArray(m_vao);
+	glBindVertexArray(m_vao);
 
-  m_shader.enable();
-  glDrawArrays(GL_LINES, 0, m_vertexData.numVertices);
-  m_shader.disable();
+	m_shader.enable();
+	glDrawArrays(GL_LINES, 0, m_vertexData.numVertices);
+	m_shader.disable();
 
-  // Restore defaults
-  glBindVertexArray(0);
+	// Restore defaults
+	glBindVertexArray(0);
 
-  CHECK_GL_ERRORS;
+	CHECK_GL_ERRORS;
 }
 
 //----------------------------------------------------------------------------------------
@@ -669,99 +818,122 @@ void A2::cleanup()
 
 void A2::updateTransformations()
 {
-  float angle_mult = (float)(360.0f / viewportWidth);
-  // float translation_mult = (float)(360.0f / viewportWidth);
-  if (transform_mode == 0)
-  {
-    // rotate view
-    for (int i = 0; i < 3; ++i)
-    {
-      if (mouse_input[i])
-      {
-        rotate[MODEL][i] += x_change[i] * angle_mult;
-      }
-    }
-    generateRotationMatrix(false);
-    generateViewMatrix();
-  }
-  else if (transform_mode == 1)
-  {
-    // translate view
-    for (int i = 0; i < 3; ++i)
-    {
-      if (mouse_input[i])
-      {
-        translate[VIEW][i] += x_change[i] * 0.01;
-        m_camera.camera_coordinateSystem.origin[i] = translate[VIEW][i];
-      }
-    }
-    generateTranslationMatrix(false);
-    generateViewMatrix();
-  }
-  else if (transform_mode == 2)
-  {
-    // perspective
-    // LEFT_MOUSE_BUTTON: FOV between 5 and 160
-    // MIDDLE_MOUSE_BUTTON: translate near plane along view direction
-    // RIGHT_MOUSE_BUTTON: translate far plane along view direction
-  }
-  else if (transform_mode == 3)
-  {
-    // rotate model
-    for (int i = 0; i < 3; ++i)
-    {
-      if (mouse_input[i])
-      {
-        rotate[MODEL][i] += x_change[i] * angle_mult;
-      }
-    }
-    generateRotationMatrix(true);
-  }
-  else if (transform_mode == 4)
-  {
-    // translate model
-    // make sure Z updates
-    // bug: holding down and not moving moves the model
-    for (int i = 0; i < 3; ++i)
-    {
-      if (mouse_input[i])
-      {
-        translate[MODEL][i] += x_change[i] * 0.005;
-        m_cube.cube_coordinateSystem.origin[i] = translate[MODEL][i];
-      }
-    }
-    generateTranslationMatrix(true);
-  }
-  else if (transform_mode == 5)
-  {
-    // scale model
-    for (int i = 0; i < 3; ++i)
-    {
-      if (mouse_input[i])
-      {
-        scale[i] += x_change[i] * 0.001;
-      }
-    }
-    generateScaleMatrix();
-  }
-  else if (transform_mode == 6)
-  {
-    // VIEWPORT
-  }
-  M = m_translate[MODEL] * m_rotate[MODEL][0] * m_rotate[MODEL][1] * m_rotate[MODEL][2] * m_scale;
+	float angle_mult = (float)(360.0f / viewportWidth);
+	// float translation_mult = (float)(360.0f / viewportWidth);
+	if (transform_mode == 0)
+	{
+		// rotate view
+		for (int i = 0; i < 3; ++i)
+		{
+			if (mouse_input[i])
+			{
+				rotate[VIEW][i] = x_change[i] * angle_mult;
+			}
+			else
+			{
+				rotate[VIEW][i] = 0;
+			}
+		}
+		generateRotationMatrix(false);
+		mat4 T = m_rotate[VIEW][0] * m_rotate[VIEW][1] * m_rotate[VIEW][2];
+		// updateViewMatrix(T);
+		updateViewMatrix(T);
+	}
+	else if (transform_mode == 1)
+	{
+		// translate view
+		for (int i = 0; i < 3; ++i)
+		{
+			if (mouse_input[i])
+			{
+				translate[VIEW][i] = x_change[i] * 0.01;
+			}
+			else
+			{
+				translate[VIEW][i] = 0;
+			}
+		}
+		generateTranslationMatrix(false);
+		updateViewMatrix(m_translate[VIEW]);
+	}
+	else if (transform_mode == 2)
+	{
+		// perspective
+		// LEFT_MOUSE_BUTTON: FOV between 5 and 160
+		// MIDDLE_MOUSE_BUTTON: translate near plane along view direction
+		// RIGHT_MOUSE_BUTTON: translate far plane along view direction
+	}
+	else if (transform_mode == 3)
+	{
+		// rotate model
+		for (int i = 0; i < 3; ++i)
+		{
+			if (mouse_input[i])
+			{
+				rotate[MODEL][i] = x_change[i] * angle_mult;
+			}
+			else
+			{
+				rotate[MODEL][i] = 0;
+			}
+		}
+		generateRotationMatrix(true);
+		mat4 T = m_rotate[MODEL][0] * m_rotate[MODEL][1] * m_rotate[MODEL][2];
+		M_model *= T;
+	}
+	else if (transform_mode == 4)
+	{
+		// translate model
+		// make sure Z updates
+		// bug: holding down and not moving moves the model
+		for (int i = 0; i < 3; ++i)
+		{
+			if (mouse_input[i])
+			{
+				translate[MODEL][i] = x_change[i] * 0.005;
+			}
+			else
+			{
+				translate[MODEL][i] = 0;
+			}
+		}
+		generateTranslationMatrix(true);
+		M_model *= m_translate[MODEL];
+	}
+
+	else if (transform_mode == 5)
+	{
+		// scale model
+		for (int i = 0; i < 3; ++i)
+		{
+			if (mouse_input[i])
+			{
+				scale[i] = x_change[i] * 0.001;
+			}
+			else
+			{
+				scale[i] = 0.25f;
+			}
+		}
+		generateScaleMatrix();
+	}
+	else if (transform_mode == 6)
+	{
+		// VIEWPORT
+	}
 }
 //----------------------------------------------------------------------------------------
 /*
  * Event handler.  Handles cursor entering the window area events.
  */
 bool A2::cursorEnterWindowEvent(
-    int entered)
+	int entered)
 {
-  bool eventHandled(false);
+	bool eventHandled(false);
 
-  // Fill in with event handling code...
+	// Fill in with event handling code...
 
-  return eventHandled;
+	return eventHandled;
 }
 
 //----------------------------------------------------------------------------------------
@@ -769,32 +941,32 @@ bool A2::cursorEnterWindowEvent(
  * Event handler.  Handles mouse cursor movement events.
  */
 bool A2::mouseMoveEvent(
-    double xPos,
-    double yPos)
+	double xPos,
+	double yPos)
 {
-  bool eventHandled(false);
-  if (!ImGui::IsMouseHoveringAnyWindow())
-  {
-    for (int i = 0; i < 3; ++i)
-    {
-      if (mouse_input[i])
-      {
-        if (prev_x[i] != -1)
-        {
-          x_change[i] = prev_x[i] - xPos;
-          updateTransformations();
-        }
-        else
-        {
-          x_change[i] = 0;
-        }
-        prev_x[i] = xPos;
-      }
-    }
-  }
-  // Fill in with event handling code...
+	bool eventHandled(false);
+	if (!ImGui::IsMouseHoveringAnyWindow())
+	{
+		for (int i = 0; i < 3; ++i)
+		{
+			if (mouse_input[i])
+			{
+				if (prev_x[i] != -1)
+				{
+					x_change[i] = prev_x[i] - xPos;
+					updateTransformations();
+				}
+				else
+				{
+					x_change[i] = 0;
+				}
+				prev_x[i] = xPos;
+			}
+		}
+	}
+	// Fill in with event handling code...
 
-  return eventHandled;
+	return eventHandled;
 }
 
 //----------------------------------------------------------------------------------------
@@ -802,32 +974,32 @@ bool A2::mouseMoveEvent(
  * Event handler.  Handles mouse button events.
  */
 bool A2::mouseButtonInputEvent(
-    int button,
-    int actions,
-    int mods)
+	int button,
+	int actions,
+	int mods)
 {
-  bool eventHandled(false);
+	bool eventHandled(false);
 
-  // button 0 = left mouse button
-  // button 1 = right mouse button
-  // button 2 = middle mouse button
+	// button 0 = left mouse button
+	// button 1 = right mouse button
+	// button 2 = middle mouse button
 
-  // actions 0 = release
-  // actions 1 = press
-  if (actions == PRESS)
-  {
-    mouse_input[button] = true;
-  }
-  else if (actions == RELEASE)
-  {
-    mouse_input[button] = false;
-    prev_x[button] = -1;
-    x_change[button] = 0;
-  }
+	// actions 0 = release
+	// actions 1 = press
+	if (actions == PRESS)
+	{
+		mouse_input[button] = true;
+	}
+	else if (actions == RELEASE)
+	{
+		mouse_input[button] = false;
+		prev_x[button] = -1;
+		x_change[button] = 0;
+	}
 
-  eventHandled = true;
+	eventHandled = true;
 
-  return eventHandled;
+	return eventHandled;
 }
 
 //----------------------------------------------------------------------------------------
@@ -835,14 +1007,14 @@ bool A2::mouseButtonInputEvent(
  * Event handler.  Handles mouse scroll wheel events.
  */
 bool A2::mouseScrollEvent(
-    double xOffSet,
-    double yOffSet)
+	double xOffSet,
+	double yOffSet)
 {
-  bool eventHandled(false);
+	bool eventHandled(false);
 
-  // Fill in with event handling code...
+	// Fill in with event handling code...
 
-  return eventHandled;
+	return eventHandled;
 }
 
 //----------------------------------------------------------------------------------------
@@ -850,26 +1022,26 @@ bool A2::mouseScrollEvent(
  * Event handler.  Handles window resize events.
  */
 bool A2::windowResizeEvent(
-    int width,
-    int height)
+	int width,
+	int height)
 {
-  bool eventHandled(false);
+	bool eventHandled(false);
 
-  window_height = height;
-  window_width = width;
+	window_height = height;
+	window_width = width;
 
-  float factor = 0.05f;
+	float factor = 0.05f;
 
-  float marginWidth = factor * width;
-  float marginHeight = factor * height;
-  viewportWidth = (int)(width * (1 - (factor * 2)));
-  viewportHeight = (int)(height * (1 - (factor * 2)));
-  glViewport(marginWidth, marginHeight, viewportWidth, viewportHeight);
-  eventHandled = true;
+	float marginWidth = factor * width;
+	float marginHeight = factor * height;
+	viewportWidth = (int)(width * (1 - (factor * 2)));
+	viewportHeight = (int)(height * (1 - (factor * 2)));
+	glViewport(marginWidth, marginHeight, viewportWidth, viewportHeight);
+	eventHandled = true;
 
-  // Fill in with event handling code...
+	// Fill in with event handling code...
 
-  return eventHandled;
+	return eventHandled;
 }
 
 //----------------------------------------------------------------------------------------
@@ -877,62 +1049,62 @@ bool A2::windowResizeEvent(
  * Event handler.  Handles key input events.
  */
 bool A2::keyInputEvent(
-    int key,
-    int action,
-    int mods)
+	int key,
+	int action,
+	int mods)
 {
-  bool eventHandled(false);
+	bool eventHandled(false);
 
-  // Fill in with event handling code...
-  if (action == GLFW_PRESS)
-  {
-    // Respond to some key events.
-    if (key == GLFW_KEY_Q)
-    {
-      // cout << "Q key pressed" << endl;
-      glfwSetWindowShouldClose(m_window, GL_TRUE);
-      eventHandled = true;
-    }
-    else if (key == GLFW_KEY_A)
-    {
-      reset();
-      eventHandled = true;
-    }
-    else if (key == GLFW_KEY_O)
-    {
-      transform_mode = 0;
-      eventHandled = true;
-    }
-    else if (key == GLFW_KEY_E)
-    {
-      transform_mode = 1;
-      eventHandled = true;
-    }
-    else if (key == GLFW_KEY_P)
-    {
-      transform_mode = 2;
-      eventHandled = true;
-    }
-    else if (key == GLFW_KEY_R)
-    {
-      transform_mode = 3;
-      eventHandled = true;
-    }
-    else if (key == GLFW_KEY_T)
-    {
-      transform_mode = 4;
-      eventHandled = true;
-    }
-    else if (key == GLFW_KEY_S)
-    {
-      transform_mode = 5;
-      eventHandled = true;
-    }
-    else if (key == GLFW_KEY_V)
-    {
-      transform_mode = 6;
-      eventHandled = true;
-    }
-  }
-  return eventHandled;
+	// Fill in with event handling code...
+	if (action == GLFW_PRESS)
+	{
+		// Respond to some key events.
+		if (key == GLFW_KEY_Q)
+		{
+			// cout << "Q key pressed" << endl;
+			glfwSetWindowShouldClose(m_window, GL_TRUE);
+			eventHandled = true;
+		}
+		else if (key == GLFW_KEY_A)
+		{
+			reset();
+			eventHandled = true;
+		}
+		else if (key == GLFW_KEY_O)
+		{
+			transform_mode = 0;
+			eventHandled = true;
+		}
+		else if (key == GLFW_KEY_E)
+		{
+			transform_mode = 1;
+			eventHandled = true;
+		}
+		else if (key == GLFW_KEY_P)
+		{
+			transform_mode = 2;
+			eventHandled = true;
+		}
+		else if (key == GLFW_KEY_R)
+		{
+			transform_mode = 3;
+			eventHandled = true;
+		}
+		else if (key == GLFW_KEY_T)
+		{
+			transform_mode = 4;
+			eventHandled = true;
+		}
+		else if (key == GLFW_KEY_S)
+		{
+			transform_mode = 5;
+			eventHandled = true;
+		}
+		else if (key == GLFW_KEY_V)
+		{
+			transform_mode = 6;
+			eventHandled = true;
+		}
+	}
+	return eventHandled;
 }
