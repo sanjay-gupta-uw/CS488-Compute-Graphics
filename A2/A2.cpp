@@ -40,14 +40,28 @@ VertexData::VertexData()
 
 void Camera::updateCoordinateSystem()
 {
-	vec3 v_z = normalize(vec3(position) - vec3(lookAt));
-	vec3 v_x = normalize(cross(vec3(up), v_z));
-	vec3 v_y = cross(v_z, v_x);
+	vec3 direction;
+	direction.x = cos(radians(yaw)) * cos(radians(pitch));
+	direction.y = sin(radians(pitch));
+	direction.z = sin(radians(yaw)) * cos(radians(pitch));
+	vec3 front = normalize(direction);
 
-	camera_coordinateSystem.origin = position;
-	camera_coordinateSystem.x = vec4(v_x, 0.0f);
-	camera_coordinateSystem.y = vec4(v_y, 0.0f);
-	camera_coordinateSystem.z = vec4(v_z, 0.0f);
+	vec3 worldUp = vec3(0.0f, 1.0f, 0.0f);
+	vec3 right = normalize(cross(front, worldUp));
+	vec3 up_ = normalize(cross(right, front));
+
+	if (roll != 0)
+	{
+		up_ = cos(radians(roll)) * up_ + sin(radians(roll)) * cross(front, up_);
+		right = cross(up_, front);
+	}
+
+	camera_coordinateSystem.x = vec4(right, 0.0f);
+	camera_coordinateSystem.y = vec4(up_, 0.0f);
+	camera_coordinateSystem.z = vec4(-front, 0.0f);
+
+	up = vec4(up_, 0.0f);
+	lookAt = position - vec4(front, 0.0f); // RHCS
 }
 
 Camera::Camera(vec4 position, vec4 lookAt, vec4 up, float near, float far, float fov)
@@ -58,7 +72,7 @@ Camera::Camera(vec4 position, vec4 lookAt, vec4 up, float near, float far, float
 	  far(far),
 	  fov(fov)
 {
-	updateCoordinateSystem();
+	// updateCoordinateSystem();
 }
 
 void printM(mat4 &M, char *name)
@@ -109,7 +123,7 @@ void A2::init()
 
 	// Set up the camera in a default position.
 	// position, lookat, up, near, far, fov
-	m_camera = Camera(vec4(2.0f, 2.0f, -5.0f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 0.0f), -3.0f, 20.0f, 120);
+	m_camera = Camera(vec4(1.0f, 1.0f, 3.0f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 0.0f), 0.1f, 20.0f, 30);
 
 	for (int i = 0; i < 2; ++i)
 	{
@@ -117,17 +131,24 @@ void A2::init()
 		{
 			translate[i][j] = 0.0f;
 			rotate[i][j] = 0.0f;
-			scale[j] = 1.0f;
+			scale[j] = 0.25f;
 		}
 	}
 
 	// Model:
 	generateScaleMatrix();
+	g_scale = {
+		vec4(0.1f, 0.0f, 0.0f, 0.0f),
+		vec4(0.0f, 0.1f, 0.0f, 0.0f),
+		vec4(0.0f, 0.0f, 0.1f, 0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f),
+	};
 	generateRotationMatrix(true);
 	generateTranslationMatrix(true);
 
 	// View:
 	generateViewMatrix();
+	initializeViewport();
 	generatePerspectiveMatrix();
 
 	// updateTransformations();
@@ -139,7 +160,10 @@ void A2::reset()
 {
 	m_cube.reset();
 	// setup variable to track initial camera state
-	m_camera = Camera(vec4(2.0f, 2.0f, -5.0f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 0.0f), -3.0f, 20.0f, 120);
+	m_camera = Camera(vec4(1.0f, 1.0f, 3.0f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 0.0f), 0.1f, 20.0f, 30);
+	m_camera.pitch = 375.3f;
+	m_camera.yaw = 792.4f;
+	m_camera.roll = 0.2f;
 
 	for (int i = 0; i < 2; ++i)
 	{
@@ -147,7 +171,7 @@ void A2::reset()
 		{
 			translate[i][j] = 0.0f;
 			rotate[i][j] = 0.0f;
-			scale[j] = 1.0f;
+			scale[j] = 0.25f;
 		}
 	}
 
@@ -158,11 +182,13 @@ void A2::reset()
 
 	// View:
 	generateViewMatrix();
+	initializeViewport();
 	generatePerspectiveMatrix();
 
 	// updateTransformations();
 	M_model = m_translate[MODEL] * m_rotate[MODEL][0] * m_rotate[MODEL][1] * m_rotate[MODEL][2];
 
+	M_viewport = mat4(1.0f);
 	transform_mode = 3;
 }
 void A2::generateScaleMatrix()
@@ -204,10 +230,11 @@ void A2::generateRotationMatrix(bool isModel)
 		vec4(0.0f, 0.0f, 0.0f, 1.0f),
 	};
 
-	if (!isModel)
+	if (MODE == VIEW)
 	{
-		m_camera.lookAt = (m_rotate[VIEW][0] * m_rotate[VIEW][1] * m_rotate[VIEW][2]) * m_camera.lookAt;
-		m_camera.updateCoordinateSystem();
+		m_camera.pitch += rotate[MODE][LOCAL_X_AXIS];
+		m_camera.yaw += rotate[MODE][LOCAL_Y_AXIS];
+		m_camera.roll += rotate[MODE][LOCAL_Z_AXIS];
 	}
 }
 
@@ -217,61 +244,110 @@ void A2::generateTranslationMatrix(bool isModel)
 	m_translate[MODE] = mat4(1.0f);
 	m_translate[MODE][3] = vec4(translate[MODE][0], translate[MODE][1], translate[MODE][2], 1.0f);
 
-	m_translate[MODE] = mat4(1.0f);
-	m_translate[MODE] = glm::translate(m_translate[MODE], vec3(translate[MODE][0], translate[MODE][1], translate[MODE][2]));
-
 	if (!isModel)
 	{
 		for (int i = 0; i < 3; ++i)
 		{
 			m_camera.position[i] += translate[MODE][i];
 		}
-		m_camera.updateCoordinateSystem();
 	}
 }
 
 void A2::generateViewMatrix()
 {
-	vec4 pos = m_camera.position;
-	vec4 x_a = m_camera.camera_coordinateSystem.x;
-	vec4 y_a = m_camera.camera_coordinateSystem.y;
-	vec4 z_a = m_camera.camera_coordinateSystem.z;
-
-	mat4 R = {
-		vec4(x_a.x, y_a.x, z_a.x, 0.0f),
-		vec4(x_a.y, y_a.y, z_a.y, 0.0f),
-		vec4(x_a.z, y_a.z, z_a.z, 0.0f),
-		vec4(0.0f, 0.0f, 0.0f, 1.0f),
-	};
-
-	mat4 T = {
-		vec4(1.0f, 0.0f, 0.0f, 0.0f),
-		vec4(0.0f, 1.0f, 0.0f, 0.0f),
-		vec4(0.0f, 0.0f, 1.0f, 0.0f),
-		vec4(-pos.x, -pos.y, -pos.z, 1.0f),
-	};
-
-	V = R * T;
-
-	V = glm::lookAt(vec3(2.0f, 2.0f, -5.0f), vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f));
-}
-
-void A2::updateViewMatrix(mat4 &T)
-{
-	T = inverse(T);
-
-	V *= T;
+	m_camera.updateCoordinateSystem();
+	V = glm::lookAt(vec3(m_camera.position), vec3(m_camera.lookAt), vec3(m_camera.up));
 }
 
 void A2::generatePerspectiveMatrix()
 {
-	float theta = radians(m_camera.fov / 2);
+	float aspect_ratio = (float)viewportWidth / (float)viewportHeight;
+	float scale_x = (aspect_ratio < 1.0f) ? aspect_ratio : 1.0f;
+	float scale_y = (aspect_ratio > 1.0f) ? (1.0f / aspect_ratio) : 1.0f;
+	float theta = radians(m_camera.fov) / 2;
 	P = {
-		vec4((float)((1 / tan(theta)) / (float)(viewportWidth / viewportHeight)), 0.0f, 0.0f, 0.0f),
-		vec4(0.0f, (float)(1 / tan(theta)), 0.0f, 0.0f),
-		vec4(0.0f, 0.0f, (m_camera.far + m_camera.near) / (m_camera.far - m_camera.near), 1),
+		vec4(scale_x * ((float)(1 / tan(theta)) / ((float)viewportWidth / (float)viewportHeight)), 0.0f, 0.0f, 0.0f),
+		vec4(0.0f, scale_y * (float)(1 / tan(theta)), 0.0f, 0.0f),
+		vec4(0.0f, 0.0f, -(m_camera.far + m_camera.near) / (m_camera.far - m_camera.near), -1),
 		vec4(0.0f, 0.0f, (-2 * m_camera.far * m_camera.near) / (m_camera.far - m_camera.near), 0.0f),
 	};
+}
+
+void A2::initializeViewport()
+{
+	float factor = 0.05f;
+
+	viewportWidth = (int)(window_width * (1 - (factor * 2)));
+	viewportHeight = (int)(window_height * (1 - (factor * 2)));
+
+	float margin_left = window_width * factor;
+	float margin_top = window_height * factor;
+
+	corners_new[0] = vec2(margin_left, margin_top);
+	corners_new[1] = vec2(margin_left + viewportWidth, margin_top + viewportHeight);
+	updateViewport();
+}
+void A2::updateViewport()
+{
+	// (Top LEFT:) (0, 0)
+	// (Bottom LEFT:) (0, window_height)
+	// (Top RIGHT:) (window_width, 0)
+	// (Bottom RIGHT:) (window_width, window_height)
+
+	float left = corners_new[0].x < corners_new[1].x ? corners_new[0].x : corners_new[1].x;
+	float right = corners_new[0].x > corners_new[1].x ? corners_new[0].x : corners_new[1].x;
+	float bottom = corners_new[0].y > corners_new[1].y ? corners_new[0].y : corners_new[1].y;
+	float top = corners_new[0].y < corners_new[1].y ? corners_new[0].y : corners_new[1].y;
+
+	if (abs(left - right) < 0.01)
+	{
+		if (abs(left) < 0.01)
+		{
+			right += 1;
+		}
+		else
+		{
+			left -= 1;
+		}
+	}
+	if (abs(bottom - top) < 0)
+	{
+		if (abs(top) < 0.01)
+		{
+			bottom += 1;
+		}
+		else
+		{
+			top -= 1;
+		}
+	}
+
+	viewportWidth = (int)(right - left);
+	viewportHeight = (int)(bottom - top);
+
+	// NDCS
+	left = ((left * 2) / (float)window_width) - 1;
+	right = ((right * 2) / (float)window_width) - 1;
+	bottom = 1 - ((bottom * 2) / (float)window_height);
+	top = 1 - ((top * 2) / (float)window_height);
+
+	corners[0] = vec2(left, bottom);
+	corners[1] = vec2(right, top);
+	generatePerspectiveMatrix();
+}
+
+void A2::drawViewportOutline()
+{
+	float left = corners[0].x;
+	float right = corners[1].x;
+	float bottom = corners[0].y;
+	float top = corners[1].y;
+
+	setLineColour(vec3(1.0f, 1.0f, 1.0f));
+	drawLine(vec2(left, bottom), vec2(right, bottom));
+	drawLine(vec2(right, bottom), vec2(right, top));
+	drawLine(vec2(right, top), vec2(left, top));
+	drawLine(vec2(left, top), vec2(left, bottom));
 }
 
 //----------------------------------------------------------------------------------------
@@ -399,10 +475,10 @@ bool A2::clipNearPlane(glm::vec4 &P0,
 	}
 	else
 	{
-		int t = (m_camera.near - P0.z) / (P1.z - P0.z);
+		int t = (-m_camera.near - P0.z) / (P1.z - P0.z);
 		P0.x = P0.x + t * (P1.x - P0.x);
 		P0.y = P0.y + t * (P1.y - P0.y);
-		P0.z = m_camera.near;
+		P0.z = -m_camera.near;
 		valid = true;
 	}
 	return valid;
@@ -514,7 +590,6 @@ bool A2::clipCube(glm::vec4 &P0,
 			t = -(A * out.x + B * out.y + C * out.z + 1) / (A * direction.x + B * direction.y + C * direction.z);
 			if (t < 0 || t > 1)
 			{
-				cout << "t: " << t << endl;
 				continue;
 			}
 
@@ -536,35 +611,18 @@ bool A2::clipCube(glm::vec4 &P0,
 
 array<vec2, 2> A2::getNDC(vec4 &P0, vec4 &P1)
 {
+	vec4 P0_view = V * M * Scale * P0;
+	vec4 P1_view = V * M * Scale * P1;
 
-	cout << "P0: " << P0 << endl;
-	cout << "P1: " << P1 << endl;
-
-	vec4 P0_model = M * m_scale * P0;
-	vec4 P1_model = M * m_scale * P1;
-
-	cout << "P0_model: " << P0_model << endl;
-	cout << "P1_model: " << P1_model << endl;
-
-	vec4 P0_view = V * P0_model;
-	vec4 P1_view = V * P1_model;
-	// clipping against near/far planes
-	cout << "P0_view: " << P0_view << endl;
-	cout << "P1_view: " << P1_view << endl;
 	bool res = clipNearPlane(P0_view, P1_view);
 	if (!res) // points are invalid after clipping
 	{
+
 		return {vec2(2.0f), vec2(2.0f)};
 	}
-	cout << "After clipping to near: " << endl;
-	cout << "P0_view: " << P0_view << endl;
-	cout << "P1_view: " << P1_view << endl;
 
 	vec4 V0_persp = P * P0_view;
 	vec4 V1_persp = P * P1_view;
-
-	cout << "V0_persp: " << V0_persp << endl;
-	cout << "V1_persp: " << V1_persp << endl;
 
 	// clip against normalized cube
 	res = clipCube(V0_persp, V1_persp);
@@ -573,10 +631,70 @@ array<vec2, 2> A2::getNDC(vec4 &P0, vec4 &P1)
 		return {vec2(2.0f), vec2(2.0f)};
 	}
 
-	cout << "After clipping to cube: " << endl;
-	cout << "V0_persp: " << V0_persp << endl;
-	cout << "V1_persp: " << V1_persp << endl;
+	transformToViewport(V0_persp);
+	transformToViewport(V1_persp);
+
 	return {vec2(V0_persp), vec2(V1_persp)};
+}
+
+void A2::transformToViewport(vec4 &P)
+{
+	// Get the viewport bounds from the corners array
+	float left = corners[0].x;
+	float bottom = corners[0].y;
+	float right = corners[1].x;
+	float top = corners[1].y;
+
+	float ndc_width = right - left;
+	float ndc_height = top - bottom;
+
+	float aspect_ratio_vp = ndc_width / ndc_height;
+
+	P.x = (P.x + 1.0f) / 2.0f;
+	P.x *= ndc_width;
+
+	P.y = (P.y + 1.0f) / 2.0f;
+	P.y *= ndc_height;
+
+	// if (aspect_ratio_vp > 1.0f)
+	// {
+	// 	P.y /= aspect_ratio_vp;
+	// }
+	// else
+	// {
+	// 	P.x *= aspect_ratio_vp;
+	// }
+	P.x += left;
+	P.y += bottom;
+	if (P.x < left || P.x > right || P.y < bottom || P.y > top)
+	{
+		bool solved = false;
+		if (abs(P.x - left) < 0.01)
+		{
+			P.x = left;
+			solved = true;
+		}
+		else if (abs(P.x - right) < 0.01)
+		{
+			P.x = right;
+			solved = true;
+		}
+		if (abs(P.y - bottom) < 0.01)
+		{
+			P.y = bottom;
+			solved = true;
+		}
+		else if (abs(P.y - top) < 0.01)
+		{
+			P.y = top;
+			solved = true;
+		}
+		if (!solved)
+		{
+			P.x = 2.0f;
+			P.y = 2.0f;
+		}
+	}
 }
 
 //---------------------------------------------------------------------------------------
@@ -603,6 +721,7 @@ void A2::appLogic()
 {
 	// Place per frame, application logic here ...
 	initLineData();
+	Scale = m_scale;
 	drawModel();
 
 	M = mat4(1.0f);
@@ -641,23 +760,20 @@ void A2::drawModel()
 	int ct = 0;
 	for (int i = 0; i < 2; ++i)
 	{
-		for (int j = 0; j < 4; ++j)
+		for (int j = i * 4; j < (i + 1) * 4; ++j)
 		{
-			array<vec2, 2> points = getNDC(m_cube.cube_vertices[j], m_cube.cube_vertices[j + 1]);
-			cout << "points: " << points[0] << " " << points[1] << endl;
+			array<vec2, 2> points = getNDC(m_cube.cube_vertices[j], m_cube.cube_vertices[(i * 4) + ((j + 1) % 4)]);
 			if (points[0].x > 1.0f)
 			{
 				continue;
 			}
 			drawLine(points[0], points[1]);
-			exit(0);
 		}
 		ct += 4;
 	}
 	for (int i = 0; i < 4; ++i)
 	{
-		array<vec2, 2> points = getNDC(m_cube.cube_vertices[i], m_cube.cube_vertices[i + 1]);
-		cout << "points: " << points[0] << " " << points[1] << endl;
+		array<vec2, 2> points = getNDC(m_cube.cube_vertices[i], m_cube.cube_vertices[i + 4]);
 		if (points[0].x > 1.0f)
 		{
 			continue;
@@ -665,6 +781,7 @@ void A2::drawModel()
 		drawLine(points[0], points[1]);
 	}
 
+	Scale = g_scale;
 	// draw cube gnomons
 	vec4 points[4] = {
 		world_coordinateSystem.origin,
@@ -688,23 +805,6 @@ void A2::drawModel()
 		setLineColour(colours[i - 1]);
 		drawLine(p[0], p[1]);
 	}
-}
-
-void A2::drawViewportOutline()
-{
-	float margin_width_ndc = (float)(window_width - viewportWidth) / window_width;
-	float margin_height_ndc = (float)(window_height - viewportHeight) / window_height;
-
-	float left = -1.0f + margin_width_ndc;
-	float right = 1.0f - margin_width_ndc;
-	float bottom = -1.0f + margin_height_ndc;
-	float top = 1.0f - margin_height_ndc;
-
-	setLineColour(vec3(1.0f, 1.0f, 1.0f));
-	drawLine(vec2(left, bottom), vec2(right, bottom));
-	drawLine(vec2(right, bottom), vec2(right, top));
-	drawLine(vec2(right, top), vec2(left, top));
-	drawLine(vec2(left, top), vec2(left, bottom));
 }
 //----------------------------------------------------------------------------------------
 /*
@@ -835,9 +935,7 @@ void A2::updateTransformations()
 			}
 		}
 		generateRotationMatrix(false);
-		mat4 T = m_rotate[VIEW][0] * m_rotate[VIEW][1] * m_rotate[VIEW][2];
-		// updateViewMatrix(T);
-		updateViewMatrix(T);
+		generateViewMatrix();
 	}
 	else if (transform_mode == 1)
 	{
@@ -854,7 +952,7 @@ void A2::updateTransformations()
 			}
 		}
 		generateTranslationMatrix(false);
-		updateViewMatrix(m_translate[VIEW]);
+		generateViewMatrix();
 	}
 	else if (transform_mode == 2)
 	{
@@ -862,6 +960,49 @@ void A2::updateTransformations()
 		// LEFT_MOUSE_BUTTON: FOV between 5 and 160
 		// MIDDLE_MOUSE_BUTTON: translate near plane along view direction
 		// RIGHT_MOUSE_BUTTON: translate far plane along view direction
+		if (mouse_input[LEFT])
+		{
+			// cout << "x_change[LEFT]: " << x_change[LEFT] << endl;
+			m_camera.fov += x_change[LEFT] * 0.5;
+			if (m_camera.fov < 5.0f)
+			{
+				m_camera.fov = 5.0f;
+			}
+			else if (m_camera.fov > 160.0f)
+			{
+				m_camera.fov = 160.0f;
+			}
+			else if (m_camera.fov < 5.0f)
+			{
+				m_camera.fov = 5.0f;
+			}
+		}
+		if (mouse_input[MIDDLE])
+		{
+			m_camera.near += x_change[MIDDLE] * 0.01;
+
+			if (m_camera.near < 0.1f)
+			{
+				m_camera.near = 0.1f;
+			}
+			if (m_camera.near > 20.0f)
+			{
+				m_camera.near = 20.0f;
+			}
+		}
+		else if (mouse_input[RIGHT])
+		{
+			m_camera.far += x_change[RIGHT] * 0.01;
+			if (m_camera.far > 100.0f)
+			{
+				m_camera.far = 100.0f;
+			}
+		}
+		if (m_camera.far - m_camera.near < 0.5f)
+		{
+			m_camera.far = m_camera.near + 0.5f;
+		}
+		generatePerspectiveMatrix();
 	}
 	else if (transform_mode == 3)
 	{
@@ -890,7 +1031,7 @@ void A2::updateTransformations()
 		{
 			if (mouse_input[i])
 			{
-				translate[MODEL][i] = x_change[i] * 0.005;
+				translate[MODEL][i] = x_change[i] * 0.01;
 			}
 			else
 			{
@@ -908,11 +1049,11 @@ void A2::updateTransformations()
 		{
 			if (mouse_input[i])
 			{
-				scale[i] = x_change[i] * 0.001;
-			}
-			else
-			{
-				scale[i] = 0.25f;
+				scale[i] += x_change[i] * 0.01;
+				if (scale[i] < 0.1f)
+				{
+					scale[i] = 0.1f;
+				}
 			}
 		}
 		generateScaleMatrix();
@@ -926,17 +1067,31 @@ void A2::updateTransformations()
 /*
  * Event handler.  Handles cursor entering the window area events.
  */
-bool A2::cursorEnterWindowEvent(
-	int entered)
+bool A2::cursorEnterWindowEvent(int entered)
 {
 	bool eventHandled(false);
+	if (transform_mode == 6 && drawing && entered == 0)
+	{
+		float xPos = 0.0f;
+		float yPos = 0.0f;
+		for (int i = 0; i < 2; ++i)
+		{
+			xPos = corners_new[i].x;
+			yPos = corners_new[i].y;
 
-	// Fill in with event handling code...
-
+			corners_new[i].x = xPos < 0 ? 0 : (xPos > window_width ? window_width : xPos);
+			corners_new[i].y = yPos < 0 ? 0 : (yPos > window_height ? window_height : yPos);
+		}
+		drawing = false;
+		end_draw = false;
+		mouse_input[LEFT] = false;
+		updateViewport();
+		eventHandled = true;
+	}
 	return eventHandled;
 }
 
-//----------------------------------------------------------------------------------------
+// //----------------------------------------------------------------------------------------
 /*
  * Event handler.  Handles mouse cursor movement events.
  */
@@ -947,20 +1102,48 @@ bool A2::mouseMoveEvent(
 	bool eventHandled(false);
 	if (!ImGui::IsMouseHoveringAnyWindow())
 	{
-		for (int i = 0; i < 3; ++i)
+		if (transform_mode == 6 && drawing)
 		{
-			if (mouse_input[i])
+			if (start_draw)
 			{
-				if (prev_x[i] != -1)
+				// set first corner
+				start_draw = false;
+				corners_new[0] = vec2(xPos, yPos);
+			}
+			corners_new[1] = vec2(xPos, yPos);
+			if (end_draw)
+			{
+				end_draw = false;
+				drawing = false;
+			}
+
+			for (int i = 0; i < 2; ++i)
+			{
+				xPos = corners_new[i].x;
+				yPos = corners_new[i].y;
+
+				corners_new[i].x = xPos < 0 ? 0 : (xPos > window_width ? window_width : xPos);
+				corners_new[i].y = yPos < 0 ? 0 : (yPos > window_height ? window_height : yPos);
+			}
+			updateViewport();
+		}
+		else
+		{
+			for (int i = 0; i < 3; ++i)
+			{
+				if (mouse_input[i])
 				{
-					x_change[i] = prev_x[i] - xPos;
-					updateTransformations();
+					if (prev_x[i] != -1)
+					{
+						x_change[i] = xPos - prev_x[i];
+						updateTransformations();
+					}
+					else
+					{
+						x_change[i] = 0;
+					}
+					prev_x[i] = xPos;
 				}
-				else
-				{
-					x_change[i] = 0;
-				}
-				prev_x[i] = xPos;
 			}
 		}
 	}
@@ -989,12 +1172,21 @@ bool A2::mouseButtonInputEvent(
 	if (actions == PRESS)
 	{
 		mouse_input[button] = true;
+		if (transform_mode == 6 && mouse_input[LEFT] && !drawing)
+		{
+			start_draw = true;
+			drawing = true;
+		}
 	}
 	else if (actions == RELEASE)
 	{
 		mouse_input[button] = false;
 		prev_x[button] = -1;
 		x_change[button] = 0;
+		if (transform_mode == 6 && drawing)
+		{
+			end_draw = true;
+		}
 	}
 
 	eventHandled = true;
@@ -1030,13 +1222,7 @@ bool A2::windowResizeEvent(
 	window_height = height;
 	window_width = width;
 
-	float factor = 0.05f;
-
-	float marginWidth = factor * width;
-	float marginHeight = factor * height;
-	viewportWidth = (int)(width * (1 - (factor * 2)));
-	viewportHeight = (int)(height * (1 - (factor * 2)));
-	glViewport(marginWidth, marginHeight, viewportWidth, viewportHeight);
+	initializeViewport();
 	eventHandled = true;
 
 	// Fill in with event handling code...

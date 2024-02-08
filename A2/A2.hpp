@@ -72,7 +72,7 @@ public:
 	{
 		int outcode = 0;
 		// camera looks down negative z axis
-		if (v.z > near)
+		if (v.z > -near)
 			outcode |= 1;
 
 		return outcode;
@@ -87,6 +87,10 @@ public:
 	float near;
 	float far;
 	float fov;
+
+	float pitch = 375.3f;
+	float yaw = 792.4f;
+	float roll = 0.0f;
 
 	CoordinateSystem3D camera_coordinateSystem;
 };
@@ -133,14 +137,16 @@ protected:
 	void generateRotationMatrix(bool isModel);
 	void generateTranslationMatrix(bool isModel);
 	void generateViewMatrix();
-	void updateViewMatrix(glm::mat4 &T);
 	void generatePerspectiveMatrix();
 
 	bool clipNearPlane(glm::vec4 &v0,
 					   glm::vec4 &v1);
+	bool clipFarPlane(glm::vec4 &v0,
+					  glm::vec4 &v1);
 
-	bool clipCube(glm::vec4 &P0,
-				  glm::vec4 &P1);
+	bool
+	clipCube(glm::vec4 &P0,
+			 glm::vec4 &P1);
 
 	void updateTransformations();
 
@@ -157,7 +163,9 @@ protected:
 
 	glm::mat4 m_translate[2];
 	glm::mat4 m_rotate[2][3];
+	glm::mat4 Scale;
 	glm::mat4 m_scale;
+	glm::mat4 g_scale;
 
 	float scale[3];
 	float rotate[2][3];
@@ -187,4 +195,13 @@ protected:
 
 	int window_width;
 	int window_height;
+	bool start_draw = false;
+	bool end_draw = false;
+	bool drawing = false;
+	glm::vec2 corners[2];
+	glm::vec2 corners_new[2];
+
+	void updateViewport();
+	void initializeViewport();
+	void transformToViewport(glm::vec4 &P);
 };
