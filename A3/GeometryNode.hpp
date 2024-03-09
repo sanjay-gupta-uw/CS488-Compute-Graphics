@@ -3,13 +3,14 @@
 #pragma once
 
 #include "SceneNode.hpp"
+#include "cs488-framework/MeshConsolidator.hpp"
 
-class GeometryNode : public SceneNode {
+class GeometryNode : public SceneNode
+{
 public:
 	GeometryNode(
-		const std::string & meshId,
-		const std::string & name
-	);
+		const std::string &meshId,
+		const std::string &name);
 
 	Material material;
 

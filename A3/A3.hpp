@@ -8,19 +8,22 @@
 #include "cs488-framework/MeshConsolidator.hpp"
 
 #include "SceneNode.hpp"
+#include "GeometryNode.hpp"
+#include "JointNode.hpp"
 
 #include <glm/glm.hpp>
 #include <memory>
 
-struct LightSource {
+struct LightSource
+{
 	glm::vec3 position;
 	glm::vec3 rgbIntensity;
 };
 
-
-class A3 : public CS488Window {
+class A3 : public CS488Window
+{
 public:
-	A3(const std::string & luaSceneFile);
+	A3(const std::string &luaSceneFile);
 	virtual ~A3();
 
 protected:
@@ -39,10 +42,10 @@ protected:
 	virtual bool keyInputEvent(int key, int action, int mods) override;
 
 	//-- One time initialization methods:
-	void processLuaSceneFile(const std::string & filename);
+	void processLuaSceneFile(const std::string &filename);
 	void createShaderProgram();
 	void enableVertexShaderInputSlots();
-	void uploadVertexDataToVbos(const MeshConsolidator & meshConsolidator);
+	void uploadVertexDataToVbos(const MeshConsolidator &meshConsolidator);
 	void mapVboDataToVertexShaderInputLocations();
 	void initViewMatrix();
 	void initLightSources();
@@ -51,6 +54,22 @@ protected:
 	void uploadCommonSceneUniforms();
 	void renderSceneGraph(const SceneNode &node);
 	void renderArcCircle();
+	void updateTransformations(float oldX, float newX, float oldY, float newY, bool drag);
+	void updateRotationTransformations(float fOldX, float fNewX, float fOldY, float fNewY);
+
+	bool zBuffer;
+	bool backFaceCulling;
+	bool frontFaceCulling;
+	bool renderCircle;
+
+	void processSceneNode(SceneNode &node, glm::mat4 parentTransform);
+	void renderGeometryNode(GeometryNode &node, glm::mat4 parentTransform);
+
+	bool mouse_input[3] = {false, false, false};
+	double x_change[3] = {0, 0, 0}; // need additional vars for mid/right
+	double y_change[3] = {0, 0, 0}; // need additional vars for mid/right
+	double prev_x[3] = {-1, -1, -1};
+	double prev_y[3] = {-1, -1, -1};
 
 	glm::mat4 m_perpsective;
 	glm::mat4 m_view;
@@ -79,4 +98,25 @@ protected:
 	std::string m_luaSceneFile;
 
 	std::shared_ptr<SceneNode> m_rootNode;
+	SceneNode *headNode = nullptr;
+	std::vector<bool> selected;
+	void initializeNodes(SceneNode &node);
+	std::vector<SceneNode *> nodes;
+	std::vector<glm::vec3> initial_positions;
+	std::vector<float> initial_angles_x;
+	std::vector<float> initial_angles_y;
+	std::vector<glm::mat4> initial_transforms;
+	std::vector<glm::mat4> initial_transforms_unscaled;
+
+	void reset_position();
+	void reset_orientation();
+	void reset_joints();
+	void reset_all();
+	void update_stack();
+	void undo();
+	void redo();
+	std::vector<std::vector<glm::vec2>> joint_angle_stack;
+	int stack_index = -1;
+	bool no_undo = true;
+	bool no_redo = true;
 };

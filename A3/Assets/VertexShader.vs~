@@ -45,7 +45,6 @@ void main() {
 
 	vs_out.light = light;
 
-	vcolour = vec4(gouraudModel(position,normal), 1.0);
-	
+	vcolour = vec4(gouraudModel(position,normal), 1.0);	
 	gl_Position = Perspective * ModelView * vec4(position, 1.0);
 }
