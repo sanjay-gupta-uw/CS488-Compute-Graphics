@@ -30,10 +30,13 @@ const float EPSILON = 1e-4f;
 unsigned int NUM_NODES = 0;
 unsigned int NUM_LIGHTS = 0;
 
-const int SPHERE = 0;
-const int CUBE = 1;
-const int NONHIER_SPHERE = 2;
-const int NONHIER_BOX = 3;
+enum class PrimitiveType
+{
+	Sphere,
+	Cube,
+	NonhierSphere,
+	NonhierBox
+};
 
 void A4_Render(
 	// What to render
@@ -94,7 +97,7 @@ void assign_indices(SceneNode *node)
 {
 	if (node->m_nodeType == NodeType::GeometryNode)
 	{
-		// cout << "assigning index to node: " << node->m_name << endl;
+		cout << "assigning index to node: " << node->m_name << endl;
 		GeometryNode *geometryNode = static_cast<GeometryNode *>(node);
 		geometryNode->index = idx;
 		idx++;
@@ -103,8 +106,8 @@ void assign_indices(SceneNode *node)
 		mat_nodes.push_back(mat);
 		Primitive *primitive = static_cast<Primitive *>(geometryNode->m_primitive);
 		prim_nodes.push_back(primitive);
-		// cout << "primitive type: " << primitive->type << endl;
-		// cout << endl;
+		cout << "primitive type: " << primitive->type << endl;
+		cout << endl;
 	}
 	for (SceneNode *child : node->children)
 	{
@@ -148,8 +151,7 @@ void compute_rays(SceneNode *root, const vec3 &eye, Image &image)
 		{
 			vec4 p_world = pixel_to_world(x, y);
 			vec3 ray = normalize(vec3(p_world) - eye);
-			Ray r = {eye, ray, 1.0f / ray};
-			vec3 col = ray_color(r, 0);
+			vec3 col = ray_color(ray, eye, 0);
 
 			float correction = 1.0f;
 			image(x, y, 0) = col.x / correction;
@@ -162,151 +164,55 @@ void compute_rays(SceneNode *root, const vec3 &eye, Image &image)
 		}
 	}
 }
-
-static float inline min(float a, float b)
+// if (intersection(ray, t, point, normal, mat))
+bool intersection(vec3 ray, double *t, vec3 *point, vec3 *normal, PhongMaterial *&mat)
 {
-	return (a < b) ? a : b;
-}
-static float inline max(float a, float b)
-{
-	return (a > b) ? a : b;
-}
-
-bool intersection(const Ray ray_obj, double *t, vec3 *point, vec3 *normal, PhongMaterial *&mat)
-{
-	const vec3 ray = ray_obj.direction;
-	cout << "ray: " << to_string(ray) << endl;
 	// NH-sphere A value (quad form) -- only compute if spheres are present
 	float A = dot(ray, ray);
 	float B;
 	float C;
 	int closest_node = -1;
-	int closest_type = -1;
-	Primitive *prim;
+	NonhierSphere *prim;
 
 	for (int i = 0; i < NUM_NODES; ++i)
 	{
-		prim = prim_nodes[i];
-		switch (prim->type)
+		prim = static_cast<NonhierSphere *>(prim_nodes[i]);
+		// if nh_sphere
 		{
-		case SPHERE:
-			// code for Sphere
-			break;
-		case CUBE:
-			// code for Cube
-			break;
-		case NONHIER_SPHERE:
-		{
-			NonhierSphere *nh_sphere = static_cast<NonhierSphere *>(prim);
-			B = 2.0f * dot(ray, (*point - nh_sphere->m_pos));
-			C = dot(*point - nh_sphere->m_pos, *point - nh_sphere->m_pos) - pow(nh_sphere->m_radius, 2);
+			B = 2.0f * dot(ray, (*point - prim->m_pos));
+			C = dot(*point - prim->m_pos, *point - prim->m_pos) - pow(prim->m_radius, 2);
 
 			double roots[2] = {-1.0, -1.0};
 			int ret = quadraticRoots(A, B, C, roots);
 			if (ret > 0)
 			{
-
 				if (roots[0] < 0 && roots[1] < 0)
 				{
 					continue;
 				}
-				double close_root;
-				if (roots[0] < 0)
-				{
-					close_root = roots[1];
-				}
-				else if (roots[1] < 0)
-				{
-					close_root = roots[0];
-				}
-				else
-				{
-					close_root = (roots[0] < roots[1]) ? roots[0] : roots[1];
-				}
-
+				roots[0] = (roots[0] < 0) ? 0 : roots[0];
+				roots[1] = (roots[1] < 0) ? 0 : roots[1];
+				int close_root = (roots[0] < roots[1]) ? roots[0] : roots[1];
 				if (*t == -1.0 || close_root < *t)
 				{
 					*t = close_root;
 					closest_node = i;
-					closest_type = NONHIER_SPHERE;
 					// update normal
 				}
 			}
-			break;
-		}
-		break;
-		case NONHIER_BOX:
-		{
-			// https: // tavianator.com/2022/ray_box_boundary.html#:~:text=The%20slab%20method%20tests%20for,intersects%20the%20box%2C%20if%20any.&text=t%20%3D%20x%20%E2%88%92%20x%200%20x%20d%20.
-			NonhierBox *nh_box = static_cast<NonhierBox *>(prim);
-			// precompute box min and max
-			vec3 box_min = nh_box->m_pos;
-			vec3 box_max = nh_box->m_pos + vec3(nh_box->m_size);
-			vec3 t0 = (box_min - *point) * ray_obj.inv_dir;
-			vec3 t1 = (box_max - *point) * ray_obj.inv_dir;
-			vec3 tmin = min(t0, t1);
-			vec3 tmax = max(t0, t1);
-
-			float t_near = max(tmin.x, max(tmin.y, tmin.z));
-			float t_far = min(tmax.x, min(tmax.y, tmax.z));
-
-			if (t_near > t_far || (t_far < 0 && t_near < 0))
-			{
-				continue;
-			}
-			float t_temp = min(max(t_near, 0.0f), max(t_far, 0.0f));
-			if (*t == -1.0 || t_temp < *t)
-			{
-				*t = t_temp;
-				closest_node = i;
-				closest_type = NONHIER_BOX;
-			}
-		}
-		default:
-			// code for unknown type (maybe mesh or other types of primitives)
-			break;
 		}
 	}
-	bool intersect = false;
 	if (closest_node != -1)
 	{
-		switch (closest_type)
-		{
-		case NONHIER_SPHERE:
-		{
-			NonhierSphere *nh_sphere = static_cast<NonhierSphere *>(prim_nodes[closest_node]);
-			*normal = normalize(2.0f * (*point - nh_sphere->m_pos));
-			*point = *point + (*t * ray);
-			mat = mat_nodes[closest_node];
-			intersect = true;
-			break;
-		}
-		case NONHIER_BOX:
-		{
-			NonhierBox *nh_box = static_cast<NonhierBox *>(prim_nodes[closest_node]);
-			*normal = vec3(0.0);
-			for (int i = 0; i < 3; ++i)
-			{
-				if (abs((*point)[i] - nh_box->m_pos[i]) < EPSILON)
-				{
-					(*normal)[i] = -1.0;
-				}
-				else if (abs((*point)[i] - (nh_box->m_pos[i] + nh_box->m_size)) < EPSILON)
-				{
-					(*normal)[i] = 1.0;
-				}
-			}
-			*point = *point + (*t * ray);
-			mat = mat_nodes[closest_node];
-			intersect = true;
-			break;
-		}
-		default:
-			break;
-		}
+		prim = static_cast<NonhierSphere *>(prim_nodes[closest_node]);
+		*point = *point + (*t * ray);
+		*normal = normalize(2.0f * (*point - prim->m_pos));
+		mat = mat_nodes[closest_node];
+		return true;
 	}
-	return intersect;
+	return false;
 }
+
 vec3 cast_shadow_ray(const vec3 point, const vec3 normal)
 {
 	vec3 light_accumulated = vec3(0.0);
@@ -321,11 +227,9 @@ vec3 cast_shadow_ray(const vec3 point, const vec3 normal)
 	{
 		light = *it;
 		distance = length(light->position - point);
+		shadow_ray = normalize(light->position - point);
 		potential_point = point + (EPSILON * normal);
-		shadow_ray = normalize(light->position - potential_point);
-		Ray shadow_ray_obj = {potential_point, shadow_ray, 1.0f / shadow_ray};
-
-		if (intersection(shadow_ray_obj, &t, &potential_point, &norm, mat) && (t > 0 && t < distance))
+		if (intersection(shadow_ray, &t, &potential_point, &norm, mat) && (t > 0 && t < distance))
 		{
 			continue;
 		}
@@ -341,31 +245,29 @@ vec3 get_reflected_ray(vec3 ray, vec3 normal)
 	return normalize(ray - 2 * normal * dot(ray, normal));
 }
 
-vec3 ray_color(Ray ray_obj, int hits)
+vec3 ray_color(vec3 ray, vec3 point, int hits)
 {
 	vec3 col;
 	double t = -1.0;
 	vec3 normal;
 	PhongMaterial *mat;
 	// mat, point and normal are updated
-	vec3 point;
-	if (intersection(ray_obj, &t, &point, &normal, mat))
+	if (intersection(ray, &t, &point, &normal, mat))
 	{
 		col = mat->m_kd * ambient;
 		if (mat->m_kd != vec3(0.0)) // diffuse material
 		{
-			col = col + mat->m_kd * cast_shadow_ray(point, normal);
+			// col = col + mat->m_kd * cast_shadow_ray(ray);
+			col = col + mat->m_kd * cast_shadow_ray(point, normal); //* (l dot n);
 		}
 		// need to update this if first obj is actually light
 		if ((mat->m_ks != vec3(0.0)) && (hits < HIT_THRESHOLD)) // specular material
 		{
 			hits = hits + 1;
-			vec3 reflected_ray = get_reflected_ray(ray_obj.direction, normal);
+			vec3 reflected_ray = get_reflected_ray(ray, normal);
 			// if (ray_is_lit(point, reflected_ray))
 			{
-				// this should include shininess
-				Ray reflected_ray_obj = {point, reflected_ray, 1.0f / reflected_ray};
-				col = col + mat->m_ks * ray_color(reflected_ray_obj, hits);
+				col = col + mat->m_ks * ray_color(reflected_ray, point, hits);
 			}
 		}
 		return col;
@@ -374,3 +276,22 @@ vec3 ray_color(Ray ray_obj, int hits)
 	// represent light source as a sphere and material looks like a light source
 	return BACKGROUND;
 }
+
+// bool ray_is_lit(const vec3 point, vec3 ray)
+// {
+// 	double t;
+// 	vec3 normal;
+// 	PhongMaterial *mat;
+// 	for (Light *light : lights)
+// 	{
+// 		vec3 shadow_ray = light->position - point;
+// 		shadow_ray = normalize(shadow_ray);
+// 		vec3 potential_intersection_point = point;
+// 		if (intersection(shadow_ray, &t, &potential_intersection_point, &normal, mat) && (t > 0 && t < length(shadow_ray)))
+// 		{
+// 			return false;
+// 		}
+// 	}
+// 	// If no intersection occurs before any light, the point is lit
+// 	return true;
+// }
