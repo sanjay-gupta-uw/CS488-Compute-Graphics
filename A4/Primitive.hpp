@@ -4,44 +4,54 @@
 
 #include <glm/glm.hpp>
 
-class Primitive {
+class Primitive
+{
 public:
   virtual ~Primitive();
+  unsigned int type;
 };
 
-class Sphere : public Primitive {
+class Sphere : public Primitive
+{
 public:
+  Sphere() { type = 0; }
   virtual ~Sphere();
 };
 
-class Cube : public Primitive {
+class Cube : public Primitive
+{
 public:
+  Cube() { type = 1; }
   virtual ~Cube();
 };
 
-class NonhierSphere : public Primitive {
+class NonhierSphere : public Primitive
+{
 public:
-  NonhierSphere(const glm::vec3& pos, double radius)
-    : m_pos(pos), m_radius(radius)
+  NonhierSphere(const glm::vec3 &pos, double radius)
+      : m_pos(pos), m_radius(radius)
   {
+    type = 2;
   }
   virtual ~NonhierSphere();
 
-private:
+  // private:
   glm::vec3 m_pos;
   double m_radius;
 };
 
-class NonhierBox : public Primitive {
+class NonhierBox : public Primitive
+{
 public:
-  NonhierBox(const glm::vec3& pos, double size)
-    : m_pos(pos), m_size(size)
+  NonhierBox(const glm::vec3 &pos, double size)
+      : m_pos(pos), m_size(size)
   {
+    type = 3;
   }
-  
+
   virtual ~NonhierBox();
 
-private:
+  // private:
   glm::vec3 m_pos;
   double m_size;
 };
