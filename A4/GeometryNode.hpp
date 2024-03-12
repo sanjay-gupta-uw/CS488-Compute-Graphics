@@ -6,12 +6,13 @@
 #include "Primitive.hpp"
 #include "Material.hpp"
 
-class GeometryNode : public SceneNode {
+class GeometryNode : public SceneNode
+{
 public:
-	GeometryNode( const std::string & name, Primitive *prim, 
-		Material *mat = nullptr );
+	GeometryNode(const std::string &name, Primitive *prim,
+				 Material *mat = nullptr);
 
-	void setMaterial( Material *material );
+	void setMaterial(Material *material);
 
 	Material *m_material;
 	Primitive *m_primitive;

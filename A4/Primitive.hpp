@@ -8,20 +8,20 @@ class Primitive
 {
 public:
   virtual ~Primitive();
-  unsigned int type;
+  unsigned int type = 0;
 };
 
 class Sphere : public Primitive
 {
 public:
-  Sphere() { type = 0; }
+  Sphere() { type = 1; }
   virtual ~Sphere();
 };
 
 class Cube : public Primitive
 {
 public:
-  Cube() { type = 1; }
+  Cube() { type = 2; }
   virtual ~Cube();
 };
 
@@ -31,7 +31,7 @@ public:
   NonhierSphere(const glm::vec3 &pos, double radius)
       : m_pos(pos), m_radius(radius)
   {
-    type = 2;
+    type = 3;
   }
   virtual ~NonhierSphere();
 
@@ -46,7 +46,7 @@ public:
   NonhierBox(const glm::vec3 &pos, double size)
       : m_pos(pos), m_size(size)
   {
-    type = 3;
+    type = 4;
   }
 
   virtual ~NonhierBox();
