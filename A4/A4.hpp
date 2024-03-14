@@ -20,7 +20,7 @@ struct Ray
 {
 	glm::vec3 origin;
 	glm::vec3 direction;
-	glm::vec3 inv_dir;
+	float dist;
 };
 
 void A4_Render(
@@ -42,6 +42,7 @@ void A4_Render(
 
 void initialize_pixel_transformations(Image &image, double fov, glm::vec3 view, glm::vec3 up);
 void assign_indices(SceneNode *node);
+void update_transforms(SceneNode *node, SceneNode *parent);
 void compute_rays(SceneNode *root, Image &image);
 glm::vec4 pixel_to_world(float x, float y);
 bool intersection(const Ray ray_data, double *t, glm::vec3 *intersection_point, glm::vec3 *normal, PhongMaterial *&mat);

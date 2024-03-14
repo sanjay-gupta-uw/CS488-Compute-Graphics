@@ -8,6 +8,7 @@
 // #include "cs488-framework/ObjFileDecoder.hpp"
 #include "Mesh.hpp"
 using namespace std;
+const float EPSILON = 1e-2f;
 
 Mesh::Mesh(const std::string &fname)
 	: m_vertices(), m_faces()
@@ -17,12 +18,24 @@ Mesh::Mesh(const std::string &fname)
 	size_t s1, s2, s3;
 
 	std::ifstream ifs(fname.c_str());
+	bool initialized = false;
 	while (ifs >> code)
 	{
 		if (code == "v")
 		{
 			ifs >> vx >> vy >> vz;
 			m_vertices.push_back(glm::vec3(vx, vy, vz));
+			if (initialized)
+			{
+				b_box_min = min(b_box_min, m_vertices.back());
+				b_box_max = max(b_box_max, m_vertices.back());
+			}
+			else
+			{
+				b_box_min = m_vertices.back();
+				b_box_max = m_vertices.back();
+				initialized = true;
+			}
 		}
 		else if (code == "f")
 		{
@@ -30,6 +43,8 @@ Mesh::Mesh(const std::string &fname)
 			m_faces.push_back(Triangle(s1 - 1, s2 - 1, s3 - 1));
 		}
 	}
+	b_box_min -= glm::vec3(EPSILON);
+	b_box_max += glm::vec3(EPSILON);
 }
 
 std::ostream &operator<<(std::ostream &out, const Mesh &mesh)

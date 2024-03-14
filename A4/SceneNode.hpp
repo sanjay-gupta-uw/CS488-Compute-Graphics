@@ -23,6 +23,7 @@ public:
     SceneNode(const std::string &name);
 
     SceneNode(const SceneNode &other);
+    glm::vec3 scale_amount = glm::vec3(1.0f, 1.0f, 1.0f);
 
     virtual ~SceneNode();
 
@@ -38,6 +39,9 @@ public:
     void remove_child(SceneNode *child);
 
     //-- Transformations:
+    glm::mat4 rotation_matrix = glm::mat4(1.0f);
+    glm::mat4 translation_matrix = glm::mat4(1.0f);
+    glm::mat4 scale_matrix = glm::mat4(1.0f);
     void rotate(char axis, float angle);
     void scale(const glm::vec3 &amount);
     void translate(const glm::vec3 &amount);
@@ -53,7 +57,8 @@ public:
     NodeType m_nodeType;
     std::string m_name;
     unsigned int m_nodeId;
-    unsigned int index;
+
+    unsigned int index = -1;
 
 private:
     // The number of SceneNode instances.

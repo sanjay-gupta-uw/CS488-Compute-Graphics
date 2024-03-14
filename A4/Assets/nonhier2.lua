@@ -41,6 +41,8 @@ s5:set_material(mat1)
 steldodec = gr.mesh( 'dodec', 'smstdodeca.obj' )
 steldodec:set_material(mat3)
 scene:add_child(steldodec)
+steldodec:scale(100, 100, 100)
+-- steldodec:rotate('y', 45)
 
 white_light = gr.light({-100.0, 150.0, -400.0}, {0.9, 0.9, 0.9}, {1, 0, 0})
 magenta_light = gr.light({400.0, 100.0, -650.0}, {0.7, 0.0, 0.7}, {1, 0, 0})

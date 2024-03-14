@@ -36,6 +36,15 @@ public:
 	// private:
 	std::vector<glm::vec3> m_vertices;
 	std::vector<Triangle> m_faces;
+	glm::vec3 b_box_min;
+	glm::vec3 b_box_max;
+
+	glm::mat4 transform;
+
+	void setTransform(const glm::mat4 &t)
+	{
+		transform = t;
+	}
 
 	friend std::ostream &operator<<(std::ostream &out, const Mesh &mesh);
 };
