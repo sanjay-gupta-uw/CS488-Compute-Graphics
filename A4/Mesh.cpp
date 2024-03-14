@@ -18,23 +18,24 @@ Mesh::Mesh(const std::string &fname)
 	size_t s1, s2, s3;
 
 	std::ifstream ifs(fname.c_str());
-	bool initialized = false;
+	bool initialized_bounds = false;
+
 	while (ifs >> code)
 	{
 		if (code == "v")
 		{
 			ifs >> vx >> vy >> vz;
 			m_vertices.push_back(glm::vec3(vx, vy, vz));
-			if (initialized)
+			if (initialized_bounds)
 			{
-				b_box_min = min(b_box_min, m_vertices.back());
-				b_box_max = max(b_box_max, m_vertices.back());
+				b_box_min = glm::min(b_box_min, glm::vec3(vx, vy, vz));
+				b_box_max = glm::max(b_box_max, glm::vec3(vx, vy, vz));
 			}
 			else
 			{
-				b_box_min = m_vertices.back();
-				b_box_max = m_vertices.back();
-				initialized = true;
+				b_box_min = glm::vec3(vx, vy, vz);
+				b_box_max = glm::vec3(vx, vy, vz);
+				initialized_bounds = true;
 			}
 		}
 		else if (code == "f")
@@ -43,8 +44,6 @@ Mesh::Mesh(const std::string &fname)
 			m_faces.push_back(Triangle(s1 - 1, s2 - 1, s3 - 1));
 		}
 	}
-	b_box_min -= glm::vec3(EPSILON);
-	b_box_max += glm::vec3(EPSILON);
 }
 
 std::ostream &operator<<(std::ostream &out, const Mesh &mesh)

@@ -89,18 +89,23 @@ void SceneNode::rotate(char axis, float angle)
 	switch (axis)
 	{
 	case 'x':
-		rot_axis = vec3(1, 0, 0);
+		rotX += angle;
+
 		break;
 	case 'y':
+		rotY += angle;
 		rot_axis = vec3(0, 1, 0);
 		break;
 	case 'z':
+		rotZ += angle;
 		rot_axis = vec3(0, 0, 1);
 		break;
 	default:
 		break;
 	}
-	rotation_matrix = rotation_matrix * glm::rotate(degreesToRadians(angle), rot_axis);
+	rotation_matrix = glm::rotate(degreesToRadians(rotX), vec3(1, 0, 0)) *
+					  glm::rotate(degreesToRadians(rotY), vec3(0, 1, 0)) *
+					  glm::rotate(degreesToRadians(rotZ), vec3(0, 0, 1));
 	// cout << "rotation_matrix: " << glm::to_string(rotation_matrix) << endl;
 }
 

@@ -16,11 +16,17 @@
 #include "Mesh.hpp"
 #include <vector>
 
-struct Ray
+struct RayData
 {
 	glm::vec3 origin;
 	glm::vec3 direction;
-	float dist;
+};
+
+struct IntersectionData
+{
+	double t;
+	glm::vec3 normal;
+	PhongMaterial *mat;
 };
 
 void A4_Render(
@@ -45,6 +51,30 @@ void assign_indices(SceneNode *node);
 void update_transforms(SceneNode *node, SceneNode *parent);
 void compute_rays(SceneNode *root, Image &image);
 glm::vec4 pixel_to_world(float x, float y);
-bool intersection(const Ray ray_data, double *t, glm::vec3 *intersection_point, glm::vec3 *normal, PhongMaterial *&mat);
-glm::vec3 cast_shadow_ray(const glm::vec3 *pos, const glm::vec3 *normal, PhongMaterial *&mat);
-glm::vec3 ray_color(const Ray ray_data, int hits);
+bool intersection(const RayData ray_data, double t0, double t1, IntersectionData &intersect_data);
+glm::vec3 ray_color(const RayData ray_data, double t0, double t1, int hits);
+// glm::vec3 cast_shadow_ray(const glm::vec3 *pos, const glm::vec3 *normal, PhongMaterial *&mat);
+// vec3 cast_shadow_ray(const vec3 *point, const vec3 *normal, PhongMaterial *&mat)
+// {
+// 	vec3 light_accumulated = vec3(0.0);
+// 	vec3 norm = vec3(0.0);
+// 	PhongMaterial *mat_tmp;
+
+// 	for (Light *light : lights)
+// 	{
+// 		double t = std::numeric_limits<double>::infinity();
+// 		vec3 potential_point = *point + (EPSILON * *normal);
+// 		vec3 shadow_ray_vec = light->position - potential_point;
+// 		Ray shadow_ray_data = {potential_point, normalize(shadow_ray_vec), length(shadow_ray_vec)};
+
+// 		float distance = length(light->position - *point);
+// 		if (!intersection(shadow_ray_data, &t, &potential_point, &norm, mat_tmp) || t > distance || t < 0.0)
+// 		{
+// 			float attenuation = 1 / (light->falloff[0] + light->falloff[1] * distance + light->falloff[2] * pow(distance, 2));
+// 			vec3 l = normalize(light->position - *point);
+// 			vec3 diffuse = mat->m_kd * light->colour * max(dot(*normal, l), 0.0f);
+// 			light_accumulated += attenuation * (diffuse);
+// 		}
+// 	}
+// 	return min(light_accumulated, vec3(1.0));
+// }

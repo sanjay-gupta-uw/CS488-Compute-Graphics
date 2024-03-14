@@ -40,6 +40,9 @@ public:
 
     //-- Transformations:
     glm::mat4 rotation_matrix = glm::mat4(1.0f);
+    float rotX = 0.0f;
+    float rotY = 0.0f;
+    float rotZ = 0.0f;
     glm::mat4 translation_matrix = glm::mat4(1.0f);
     glm::mat4 scale_matrix = glm::mat4(1.0f);
     void rotate(char axis, float angle);

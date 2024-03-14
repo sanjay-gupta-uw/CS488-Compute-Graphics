@@ -129,13 +129,13 @@ void update_transforms(SceneNode *node, SceneNode *parent)
 		if (type == NONHIER_SPHERE)
 		{
 			NonhierSphere *nh_sphere = static_cast<NonhierSphere *>(prim_nodes[node->index]);
-			node->translation_matrix = translate(mat4(1.0f), vec3(nh_sphere->m_pos));
+			node->translate(nh_sphere->m_pos);
 			node->scale(vec3(nh_sphere->m_radius));
 		}
 		else if (type == NONHIER_BOX)
 		{
 			NonhierBox *nh_box = static_cast<NonhierBox *>(prim_nodes[node->index]);
-			node->translation_matrix = translate(mat4(1.0f), vec3(nh_box->m_pos));
+			node->translate(nh_box->m_pos);
 			node->scale(vec3(nh_box->m_size));
 		}
 
@@ -143,31 +143,48 @@ void update_transforms(SceneNode *node, SceneNode *parent)
 		{
 			node->translate(vec3(0.5f, 0.5f, 0.5f));
 		}
+		if (type == MESH)
+		{
+			Mesh *mesh = static_cast<Mesh *>(prim_nodes[node->index]);
+
+			vec3 bv_scale = mesh->b_box_max - mesh->b_box_min;
+			vec3 bv_translation = (mesh->b_box_max - vec3(1.0)) - (vec3(0.5) * bv_scale);
+
+			node->translate(bv_translation);
+			node->scale(bv_scale);
+
+			mesh->setTransform(translate(mat4(1.0f), bv_translation) * scale(mat4(1.0f), bv_scale));
+		}
 	}
 	// updates each node based on all transformation
-	bool is_root = parent == nullptr;
+	bool is_root = (parent == nullptr);
 	// dont pass scales to children
-	// node->scale(is_root ? vec3(1.0f) : parent->scale_amount);
-	node->rotation_matrix = is_root ? node->rotation_matrix : parent->rotation_matrix * node->rotation_matrix;
-	node->translation_matrix = is_root ? node->translation_matrix : parent->translation_matrix * node->translation_matrix;
+	node->scale(is_root ? vec3(1.0f) : parent->scale_amount);
+
+	node->rotX += is_root ? 0.0f : parent->rotX;
+	node->rotY += is_root ? 0.0f : parent->rotY;
+	node->rotZ += is_root ? 0.0f : parent->rotZ;
+	node->rotate('x', 0.0f);
+	if (node->m_name == "arc")
+	{
+		cout << "RotX: " << node->rotX << " RotY: " << node->rotY << " RotZ: " << node->rotZ << endl;
+	}
+	vec3 trans = vec3(node->translation_matrix[3]);
+	node->translation_matrix = is_root ? node->translation_matrix : node->translation_matrix * parent->translation_matrix;
 
 	node->set_transform(node->translation_matrix * node->rotation_matrix * node->scale_matrix);
-	cout << "node: " << node->m_name << " transform: " << to_string(node->get_transform()) << endl;
-	cout << node->m_name << " rotation_matrix: " << to_string(node->rotation_matrix) << endl;
 
-	if (node->index != -1 && prim_nodes[node->index]->type == MESH)
+	if (node->m_name == "plane")
 	{
-		Mesh *mesh = static_cast<Mesh *>(prim_nodes[node->index]);
-		mat4 scaling = node->scale_matrix;
-		mat4 rot = node->rotation_matrix;
-		mat4 translation = node->translation_matrix;
-
-		vec3 bv_scale = mesh->b_box_max - mesh->b_box_min;
-		vec3 bv_translation = mesh->b_box_max - (vec3(0.5) * bv_scale);
-
-		mesh->setTransform(translate(mat4(1.0f), bv_translation) * scale(mat4(1.0f), bv_scale));
-		node->set_transform((translation * mat4(translate(mat4(1.0f), bv_translation)) * rot * (scaling * scale(mat4(1.0f), bv_scale))));
+		cout << "node: <" << node->m_name << "> translation: " << to_string(node->translation_matrix) << endl;
+		cout << "node: <" << node->m_name << "> rotation: " << to_string(node->rotation_matrix) << endl;
+		cout << "node: <" << node->m_name << "> scale: " << to_string(node->scale_matrix) << endl;
 	}
+	cout << "node: <" << node->m_name << "> transform: " << to_string(node->get_transform()) << endl;
+	cout << "parent: <" << (parent == nullptr ? "root" : parent->m_name) << "> transform: " << to_string(is_root ? mat4(1.0f) : parent->get_transform()) << endl;
+	cout << endl;
+	// cout << "translation: " << to_string(node->translation_matrix) << endl;
+	// cout << "node trans: " << to_string(trans) << endl;
 	for (SceneNode *child : node->children)
 	{
 		update_transforms(child, node);
@@ -222,42 +239,23 @@ void compute_rays(SceneNode *root, Image &image)
 	size_t h = image.height();
 	size_t w = image.width();
 
-	int c = 0;
 	double progress = 0.0;
 	for (uint y = 0; y < h; ++y)
 	{
 		for (uint x = 0; x < w; ++x)
 		{
-			// if (x != 301 || y != 210)
-			// {
-			// 	image(x, y, 0) = 0.0;
-			// 	image(x, y, 1) = 0.0;
-			// 	image(x, y, 2) = 0.0;
-			// 	continue;
-			// }
-			// cout << "x: " << x << " y: " << y << endl;
 			vec4 p_world = T4 * R3 * S2 * T1 * vec4(float(x) + 0.5f, float(y) + 0.05f, 0.0f, 1.0f);
 			vec3 ray_vec = vec3(p_world) - eye_pos;
-			Ray ray_data = {eye_pos, normalize(ray_vec), length(ray_vec)};
+			RayData ray_data = {eye_pos, normalize(ray_vec)};
 
-			vec3 col = ray_color(ray_data, 0);
-			// if (col != BACKGROUND)
-			// {
-			// 	// self intersection check for when 1 obj is in the scene
-			// 	c += 1;
-			// 	cout << "x: " << x << " y: " << y << " col: " << to_string(col) << endl;
-			// 	cout << "col: " << to_string(col) << endl;
-			// }
-			// col = vec3(1.0);
+			vec3 col = ray_color(ray_data, length(ray_vec) + EPSILON, std::numeric_limits<double>::infinity(), 0);
 			image(x, y, 0) = col.x;
 			image(x, y, 1) = col.y;
 			image(x, y, 2) = col.z;
-			// exit(0);
 		}
 		progress = ((double)y / (double)h) * 100.0;
 		cout << "\rProgress: " << progress << " %" << std::flush;
 	}
-	// cout << "c: " << c << endl;
 }
 
 static double inline sphere_intersection(const vec3 *ray_pos,
@@ -295,7 +293,7 @@ static double inline sphere_intersection(const vec3 *ray_pos,
 	return -1.0;
 }
 
-static bool inline box_intersection(Ray ray_data, mat4 transformation, double *t, vec3 *normal)
+static bool inline box_intersection(RayData ray_data, mat4 transformation, double *t, vec3 *normal)
 {
 	struct face
 	{
@@ -326,7 +324,7 @@ static bool inline box_intersection(Ray ray_data, mat4 transformation, double *t
 		if (abs(denom) > EPSILON)
 		{
 			double t_temp = dot(faces[i].point - ray_data.origin, faces[i].normal) / denom;
-			if (t_temp > 0 && t_temp < *t)
+			if (t_temp > EPSILON && t_temp < *t)
 			{
 				// Check if the intersection is within the bounds of the face
 				vec3 intersection_point = ray_data.origin + (float)t_temp * ray_data.direction;
@@ -348,14 +346,13 @@ static bool inline box_intersection(Ray ray_data, mat4 transformation, double *t
 	return has_intersection;
 }
 
-bool intersection(const Ray ray_data, double *t, glm::vec3 *intersection_point, glm::vec3 *normal, PhongMaterial *&mat)
+bool intersection(const RayData ray_data, double t0, double t1, IntersectionData &intersect_data)
 {
 	// NH-sphere A value (quad form) -- only compute if spheres are present
-	const vec3 ray = ray_data.direction;
+	const vec3 ray_dir = ray_data.direction;
 	const vec3 ray_origin = ray_data.origin;
 	int closest_node = -1;
 	int closest_type = -1;
-	*t = std::numeric_limits<double>::infinity();
 	bool hit = false;
 	Primitive *prim;
 	mat4 transform;
@@ -364,40 +361,42 @@ bool intersection(const Ray ray_data, double *t, glm::vec3 *intersection_point, 
 	{
 		transform = geo_nodes[node_index]->get_transform();
 		prim = prim_nodes[node_index];
-		// if (prim->type != MESH)
-		// 	continue;
 		switch (prim->type)
 		{
 		case MESH:
 		{
-			Mesh *mesh = static_cast<Mesh *>(prim);
-			double potential_t = *t;
+			double potential_t = t1;
 			vec3 potential_normal;
-			// cout << "mesh bounding box: " << to_string(mesh->b_box_min) << " " << to_string(mesh->b_box_max) << endl;
-			// cout << "mesh transform: " << to_string(mesh->transform) << endl;
+
+			Mesh *mesh = static_cast<Mesh *>(prim);
 			if (!box_intersection(ray_data, transform, &potential_t, &potential_normal))
 			{
 				continue;
 			}
 #ifdef RENDER_BOUNDING_VOLUMES
-			*t = potential_t;
-			*normal = potential_normal;
-			closest_node = node_index;
+			intersect_data.t = potential_t;
+			intersect_data.normal = potential_normal;
+			intersect_data.mat = mat_nodes[node_index];
 			hit = true;
-
 #else
 			double beta, gamma, t_temp;
 			double a, b, c, d, e, f, g, h, i, j, k, l;
 			double M;
-			g = ray.x;
-			h = ray.y;
-			i = ray.z;
+			g = ray_dir.x;
+			h = ray_dir.y;
+			i = ray_dir.z;
 			vec3 t_1, t_2, t_3;
+			mat4 mesh_inv_trans = inverse(mesh->transform);
+
 			for (Triangle tri : mesh->m_faces)
 			{
-				t_1 = vec3(transform * inverse(mesh->transform) * vec4(mesh->m_vertices[tri.v1], 1.0f));
-				t_2 = vec3(transform * inverse(mesh->transform) * vec4(mesh->m_vertices[tri.v2], 1.0f));
-				t_3 = vec3(transform * inverse(mesh->transform) * vec4(mesh->m_vertices[tri.v3], 1.0f));
+				// cout << "t1:" << to_string(mesh->m_vertices[tri.v1]) << " t2:" << to_string(mesh->m_vertices[tri.v2]) << " t3:" << to_string(mesh->m_vertices[tri.v3]) << endl;
+				// cout << "mesh_inv_trans: " << to_string(mesh_inv_trans) << endl;
+				t_1 = vec3(transform * mesh_inv_trans * vec4(mesh->m_vertices[tri.v1], 1.0f));
+				t_2 = vec3(transform * mesh_inv_trans * vec4(mesh->m_vertices[tri.v2], 1.0f));
+				t_3 = vec3(transform * mesh_inv_trans * vec4(mesh->m_vertices[tri.v3], 1.0f));
+				// cout << "t_1: " << to_string(t_1) << " t_2: " << to_string(t_2) << " t_3: " << to_string(t_3) << endl;
+				// exit(0);
 
 				a = t_1.x - t_2.x;
 				b = t_1.y - t_2.y;
@@ -410,7 +409,7 @@ bool intersection(const Ray ray_data, double *t, glm::vec3 *intersection_point, 
 				j = t_1.x - ray_origin.x;
 				k = t_1.y - ray_origin.y;
 				l = t_1.z - ray_origin.z;
-				// // cout << "eye_pos: " << to_string(eye_pos) << " ray_origin: " << to_string(ray_origin) << " ray: " << to_string(ray) << endl;
+				// // cout << "eye_pos: " << to_string(eye_pos) << " ray_origin: " << to_string(ray_origin) << " ray_dir: " << to_string(ray_dir) << endl;
 				// // cout << "S1: " << tri.v1 << " S2: " << tri.v2 << " S3: " << tri.v3 << endl;
 				// // cout << "S1: " << to_string(mesh->m_vertices[tri.v1]) << " S2: " << to_string(mesh->m_vertices[tri.v2]) << " S3: " << to_string(mesh->m_vertices[tri.v3]) << endl;
 				// // cout << "a: " << a << " b: " << b << " c: " << c << endl;
@@ -427,7 +426,7 @@ bool intersection(const Ray ray_data, double *t, glm::vec3 *intersection_point, 
 
 				t_temp = -(f * (a * k - j * b) + e * (j * c - a * l) + d * (b * l - k * c)) / M;
 				// // cout << "t_temp: " << t_temp << endl;
-				if (t_temp < EPSILON_T || t_temp > *t)
+				if (t_temp < t0 || t_temp > t1)
 				{
 					continue;
 				}
@@ -441,16 +440,18 @@ bool intersection(const Ray ray_data, double *t, glm::vec3 *intersection_point, 
 
 				beta = (j * (e * i - h * f) + k * (g * f - d * i) + l * (d * h - e * g)) / M;
 				// // cout << "beta: " << beta << " gamma: " << gamma << " t_temp: " << t_temp << endl;
-				if (beta < -EPSILON_T || beta + gamma > 1 + EPSILON_T)
+				if (beta < EPSILON_T || beta + gamma > 1 + EPSILON_T)
 				{
 					continue;
 				}
 
-				if (t_temp > EPSILON && t_temp < *t && intersection_visible(ray_origin + (t_temp * ray)))
+				if (intersection_visible(ray_origin + (t_temp * ray_dir)))
 				{
-					*t = t_temp;
-					*normal = normalize(cross(t_2 - t_1, t_3 - t_1));
-					closest_node = node_index;
+					intersect_data.t = t_temp;
+					intersect_data.normal = normalize(cross(t_2 - t_1, t_3 - t_1));
+					// cout << "normal: " << to_string(intersect_data.normal) << endl;
+					intersect_data.mat = mat_nodes[node_index];
+
 					hit = true;
 				}
 			}
@@ -463,14 +464,13 @@ bool intersection(const Ray ray_data, double *t, glm::vec3 *intersection_point, 
 			mat4 inv_transform = inverse(transform);
 			vec3 potential_normal;
 
-			double t_temp = sphere_intersection(&ray_origin, &ray, &inv_transform, &potential_normal);
+			double t_temp = sphere_intersection(&ray_origin, &ray_dir, &inv_transform, &potential_normal);
 
-			if ((t_temp > EPSILON && t_temp < *t) && intersection_visible(ray_origin + (t_temp * ray)))
+			if ((t_temp > t0 && t_temp < t1) && intersection_visible(ray_origin + (t_temp * ray_dir)))
 			{
-				*t = t_temp;
-				closest_node = node_index;
-				closest_type = NONHIER_SPHERE;
-				*normal = potential_normal;
+				intersect_data.t = t_temp;
+				intersect_data.normal = potential_normal;
+				intersect_data.mat = mat_nodes[node_index];
 
 				hit = true;
 			}
@@ -479,17 +479,16 @@ bool intersection(const Ray ray_data, double *t, glm::vec3 *intersection_point, 
 		case CUBE:
 		case NONHIER_BOX:
 		{
-			double t_temp = *t;
+			double t_temp = t1;
 			vec3 potential_normal;
 
 			if (box_intersection(ray_data, geo_nodes[node_index]->get_transform(), &t_temp, &potential_normal))
 			{
-				if (t_temp < *t && intersection_visible(ray_origin + (t_temp * ray)))
+				if (t_temp > t0 && intersection_visible(ray_origin + (t_temp * ray_dir)))
 				{
-					*t = t_temp;
-					closest_node = node_index;
-					closest_type = NONHIER_BOX;
-					*normal = potential_normal;
+					intersect_data.t = t_temp;
+					intersect_data.normal = potential_normal;
+					intersect_data.mat = mat_nodes[node_index];
 
 					hit = true;
 				}
@@ -500,68 +499,59 @@ bool intersection(const Ray ray_data, double *t, glm::vec3 *intersection_point, 
 			continue;
 		}
 	}
-	if (closest_node != -1)
-	{
-		mat = mat_nodes[closest_node];
-		*intersection_point = ray_origin + (*t * ray);
-	}
 	return hit;
 }
-vec3 cast_shadow_ray(const vec3 *point, const vec3 *normal, PhongMaterial *&mat)
+
+glm::vec3 ray_color(const RayData ray_data, double t0, double t1, int hits)
 {
-	vec3 light_accumulated = vec3(0.0);
-	vec3 norm = vec3(0.0);
-	PhongMaterial *mat_tmp;
-
-	for (Light *light : lights)
+	if (hits > HIT_THRESHOLD)
 	{
-		double t = std::numeric_limits<double>::infinity();
-		vec3 potential_point = *point + (EPSILON * *normal);
-		vec3 shadow_ray_vec = light->position - potential_point;
-		Ray shadow_ray_data = {potential_point, normalize(shadow_ray_vec), length(shadow_ray_vec)};
-
-		float distance = length(light->position - *point);
-		if (!intersection(shadow_ray_data, &t, &potential_point, &norm, mat_tmp) || t > distance || t < 0.0)
-		{
-			float attenuation = 1 / (light->falloff[0] + light->falloff[1] * distance + light->falloff[2] * pow(distance, 2));
-			vec3 l = normalize(light->position - *point);
-			vec3 diffuse = mat->m_kd * light->colour * max(dot(*normal, l), 0.0f);
-			light_accumulated += attenuation * (diffuse);
-		}
+		return BACKGROUND;
 	}
-	return min(light_accumulated, vec3(1.0));
-}
-
-glm::vec3 ray_color(const Ray ray_data, int hits)
-{
-	vec3 col;
-	double t = ray_data.dist;
-	vec3 normal;
-	PhongMaterial *mat = nullptr;
-	vec3 point;
-	// mat, point and normal are updated
-	if (intersection(ray_data, &t, &point, &normal, mat))
+	IntersectionData intersect_data, intersect_shadow_data;
+	if (intersection(ray_data, t0, t1, intersect_data))
 	{
-		col = mat->m_kd * ambient;
-		if (mat->m_kd != vec3(0.0)) // diffuse material
+		vec3 intersection_point = ray_data.origin + (intersect_data.t * ray_data.direction) + (EPSILON * intersect_data.normal);
+		vec3 col = intersect_data.mat->m_kd * ambient;
+		if (intersect_data.mat->m_ks != vec3(0.0))
 		{
-			col = col + cast_shadow_ray(&point, &normal, mat);
-		}
-		// need to update this if first obj is actually light
-		if ((mat->m_ks != vec3(0.0)) && (hits < HIT_THRESHOLD)) // specular material
-		{
-			hits = hits + 1;
-			vec3 r = glm::reflect(-l, *normal); // Reflect the light vector around the normal
-												// vec3 specular = mat->m_ks * light->colour * pow(max(dot((eye_pos - *point), r), 0.0f), mat->m_shininess);
+			for (Light *light : lights)
+			{
+				vec3 l_vec = (light->position - intersection_point);
+				RayData shadow_ray_data = {
+					intersection_point,
+					normalize(l_vec),
+				};
 
-			vec3 reflected_ray = glm::reflect(ray_data.direction, normal);
-			Ray reflected_ray_data = {point, reflected_ray, std::numeric_limits<float>::infinity()};
-			col = col + mat->m_ks * ray_color(reflected_ray_data, hits);
-			// remove self inter-reflection
+				if (!intersection(shadow_ray_data, EPSILON, length(l_vec) + EPSILON, intersect_shadow_data))
+				{
+					col = col + intersect_data.mat->m_kd * light->colour * max(dot(intersect_data.normal, shadow_ray_data.direction), 0.0f);
+					// add specular
+					vec3 view_dir = -ray_data.direction;
+					vec3 reflect_dir = normalize(reflect(-l_vec, intersect_data.normal));
+					if (intersect_data.mat->m_ks != vec3(0.0))
+					{
+						col += intersect_data.mat->m_ks * light->colour * pow(max(dot(view_dir, reflect_dir), 0.0f), intersect_data.mat->m_shininess);
+					}
+				}
+			}
 		}
-		return col;
+		if (intersect_data.mat->m_ks != vec3(0.0))
+		{
+			// mirror reflection
+			RayData reflected_ray_data = {
+				intersection_point,
+				normalize(reflect(ray_data.direction, intersect_data.normal)),
+			};
+			vec3 reflect_ = ray_data.direction - 2 * dot(ray_data.direction, intersect_data.normal) * intersect_data.normal;
+			col += intersect_data.mat->m_ks * ray_color(reflected_ray_data, EPSILON, std::numeric_limits<double>::infinity(), hits + 1);
+		}
+		return min(col, vec3(1.0));
 	}
 	// what about pixels that hit the light source itself? -- wont this be a single point?
 	// represent light source as a sphere and material looks like a light source
-	return BACKGROUND;
+	float t = 0.5 * (normalize(ray_data.direction).y + 1.0);
+	vec3 lower_color = vec3(0.5, 0.0, 0.8);
+	vec3 upper_color = vec3(0.2, 0.4, 0.3);
+	return mix(upper_color, lower_color, t);
 }
