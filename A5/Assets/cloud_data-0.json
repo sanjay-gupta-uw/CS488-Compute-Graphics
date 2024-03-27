@@ -1,0 +1,84 @@
+{"frames": [
+
+{
+	"filename": "cloud_sprite_1.png",
+	"frame": {"x":1554,"y":474,"w":172,"h":126},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":445,"y":412,"w":172,"h":126},
+	"sourceSize": {"w":1024,"h":1024}
+},
+{
+	"filename": "cloud_sprite_2.png",
+	"frame": {"x":370,"y":679,"w":277,"h":188},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":368,"y":352,"w":277,"h":188},
+	"sourceSize": {"w":1024,"h":1024}
+},
+{
+	"filename": "cloud_sprite_3.png",
+	"frame": {"x":1,"y":679,"w":367,"h":305},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":324,"y":287,"w":367,"h":305},
+	"sourceSize": {"w":1024,"h":1024}
+},
+{
+	"filename": "cloud_sprite_4.png",
+	"frame": {"x":560,"y":669,"w":368,"h":230},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":338,"y":388,"w":368,"h":230},
+	"sourceSize": {"w":1024,"h":1024}
+},
+{
+	"filename": "cloud_sprite_5.png",
+	"frame": {"x":1302,"y":1,"w":471,"h":381},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":293,"y":480,"w":471,"h":381},
+	"sourceSize": {"w":1024,"h":1024}
+},
+{
+	"filename": "cloud_sprite_6.png",
+	"frame": {"x":930,"y":640,"w":622,"h":356},
+	"rotated": false,
+	"trimmed": true,
+	"spriteSourceSize": {"x":189,"y":299,"w":622,"h":356},
+	"sourceSize": {"w":1024,"h":1024}
+},
+{
+	"filename": "cloud_sprite_7.png",
+	"frame": {"x":427,"y":1,"w":666,"h":465},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":201,"y":470,"w":666,"h":465},
+	"sourceSize": {"w":1024,"h":1024}
+},
+{
+	"filename": "cloud_sprite_8.png",
+	"frame": {"x":894,"y":1,"w":637,"h":406},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":205,"y":424,"w":637,"h":406},
+	"sourceSize": {"w":1024,"h":1024}
+},
+{
+	"filename": "cloud_sprite_9.png",
+	"frame": {"x":1,"y":1,"w":676,"h":424},
+	"rotated": true,
+	"trimmed": true,
+	"spriteSourceSize": {"x":183,"y":431,"w":676,"h":424},
+	"sourceSize": {"w":1024,"h":1024}
+}],
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "cloud_texture-0.png",
+	"format": "RGBA8888",
+	"size": {"w":1684,"h":997},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:bbb2852aea9ecef2f22b5801ea51002a:3aa11b3340e54be4c540fa9f4aa7f308:d108b93abcec81bd5dcec4cd7753611c$"
+}
+}

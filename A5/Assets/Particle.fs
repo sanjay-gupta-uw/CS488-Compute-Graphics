@@ -1,17 +1,17 @@
 #version 330 core
 
-// Interpolated values from the vertex shaders
-// in vec2 UV;
-in vec4 particlecolor;
+// flat in int SpriteIndex;
+// in vec2 TexCoords;
 
-// Output data
-out vec4 color;
+out vec4 FragColor;
 
-// uniform sampler2D myTextureSampler;
+// uniform samplerBuffer SpriteUVS;
+// uniform sampler2D SpriteAtlas;
 
 void main()
 {
-    // Output color = color of the texture at the specified UV
-    color = particlecolor;
-    // color = texture(myTextureSampler, UV) * particlecolor;
+    // vec4 spriteInfo = texelFetch(SpriteUVS, SpriteIndex);
+    // vec2 uv = TexCoords * spriteInfo.zw + spriteInfo.xy;
+    // FragColor = texture(SpriteAtlas, uv);
+    FragColor = vec4(1.0, 1.0, 0.0, 1.0);
 }
