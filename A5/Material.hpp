@@ -6,11 +6,12 @@
 
 // Material surface properties to be used as input into a local illumination model
 // (e.g. the Phong Reflection Model).
-struct Material {
+struct Material
+{
 	Material()
-			: kd(glm::vec3(0.0f)),
-			  ks(glm::vec3(0.0f)),
-			  shininess(0.0f) { }
+		: kd(glm::vec3(0.0f)),
+		  ks(glm::vec3(0.0f)),
+		  shininess(0.0f) {}
 
 	// Diffuse reflection coefficient
 	glm::vec3 kd;

@@ -1,0 +1,35 @@
+newmtl Material.001
+RGB 0.175 0.044 0.042
+
+newmtl Material.014
+RGB 0.246 0.184 0.076
+
+newmtl Material.017
+RGB 0.246 0.184 0.076
+
+newmtl Material.018
+RGB 0.863 0.539 0.292
+
+newmtl Material.019
+RGB 0.175 0.044 0.042
+
+newmtl Material.025
+RGB 0.129 0.000 0.801
+
+newmtl pearls.006
+RGB 0.800 0.800 0.800
+
+newmtl scar.006
+RGB 0.000879 0.000729 0.000675 
+
+newmtl nika.006
+RGB 0.778 0.885 1.000
+
+newmtl nika_skin.007
+RGB 0.863 0.552 0.296
+
+newmtl Dark_Pink.006
+RGB 0.801 0.068 0.267 
+
+newmtl Dark_Black
+RGB 0.0 0.0 0.0

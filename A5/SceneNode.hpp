@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "Material.hpp"
-
 #include <glm/glm.hpp>
 
 #include <list>
@@ -11,6 +9,7 @@
 #include <iostream>
 
 #include "cs488-framework/ShaderProgram.hpp"
+#include "cs488-framework/Material.hpp"
 
 enum class NodeType
 {

@@ -1,0 +1,2 @@
+newmtl Material
+RGB 0.788 0.655 0.537

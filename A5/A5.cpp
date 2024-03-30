@@ -63,7 +63,8 @@ A5::~A5()
 void A5::init()
 {
     // camera_position = vec3(0.0f, 0.0f, 40.0f);
-    camera_position = vec3(0.0f, 0.0f, 5.0f);
+    // camera_position = vec3(-60.0f, 40.0f, 40.0f);
+    camera_position = vec3(10, 5, 10);
     // Set the background colour.
     glClearColor(0.32, 0.34, 0.33, 1.0);
 
@@ -81,26 +82,15 @@ void A5::init()
     // positions, and normals will be extracted and stored within the MeshConsolidator
     // class.
     unique_ptr<MeshConsolidator> meshConsolidator(new MeshConsolidator{
-        getAssetFilePath("cube.obj"),
-        getAssetFilePath("sphere.obj"),
-        getAssetFilePath("luffy_face.obj"),
-        getAssetFilePath("luffy_neck.obj"),
-        getAssetFilePath("luffy_torso.obj"),
-        getAssetFilePath("luffy_right_upperarm.obj"),
-        getAssetFilePath("luffy_left_upperarm.obj"),
-        getAssetFilePath("luffy_right_forearm.obj"),
-        getAssetFilePath("luffy_left_forearm.obj"),
-        getAssetFilePath("luffy_right_hand.obj"),
-        getAssetFilePath("luffy_left_hand.obj"),
-        getAssetFilePath("luffy_right_thigh.obj"),
-        getAssetFilePath("luffy_left_thigh.obj"),
-        getAssetFilePath("luffy_right_calf.obj"),
-        getAssetFilePath("luffy_left_calf.obj"),
-        getAssetFilePath("luffy_right_foot.obj"),
-        getAssetFilePath("luffy_left_foot.obj"),
-        getAssetFilePath("suzanne.obj"),
+        getAssetFilePath("luffy.obj"),
         getAssetFilePath("onigashima.obj"),
     });
+
+    material_list = meshConsolidator->getMaterialsVector();
+    material_ranges = meshConsolidator->getMaterialRangesVector();
+    material_map = meshConsolidator->getMaterialMap();
+
+    initMaterialList();
 
     // Acquire the BatchInfoMap from the MeshConsolidator.
     meshConsolidator->getBatchInfoMap(m_batchInfoMap);
@@ -150,30 +140,67 @@ void A5::init()
     p_sys.size_variation = 0.1f;
 
     p_clouds.velocity = vec3(0.1, 0.1, 0.1);
-    p_clouds.velocity_variation = vec3(0.1f, 0.1f, 0.1f);
+    p_clouds.velocity_variation = vec3(0.01f, 0.01f, 0.01f);
     p_clouds.m_color_start = vec4(1.0f, 0.8f, 0.8f, 1.0f);
     p_clouds.m_color_end = vec4(1.0f, 0.6f, 0.6f, 1.0f);
-    p_clouds.size_begin = 1.0f;
-    p_clouds.size_end = 0.01f;
+    p_clouds.size_begin = 0.01f;
+    p_clouds.size_end = 3.0f;
     p_clouds.size_variation = 0.1f;
 
-    p_clouds.m_position = vec3(20.0f, 20.0f, -10.0f);
     clouds_data.is_circle = true;
 
     particle_system_enabled = false;
     clouds_enabled = true;
+
+    spline_time = 0.0f;
+    is_moving_up = true;
+}
+
+void A5::initMaterialList()
+{
+    vector<pair<pair<int, int>, vec3>> temp_mats;
+    string objFile = "";
+    for (int i = 0; i < material_list->size(); ++i)
+    {
+        if ((*material_ranges)[i].first == -1)
+        {
+            if (temp_mats.size() > 0)
+            {
+                asset_material_map[objFile] = temp_mats;
+                cout << "last range: " << temp_mats[temp_mats.size() - 1].first.first << ", " << temp_mats[temp_mats.size() - 1].first.second << endl;
+            }
+            objFile = (*material_list)[i];
+            cout << "objFile: " << objFile << endl;
+            temp_mats.clear();
+        }
+        else
+        {
+            string mat_name = (*material_list)[i];
+            cout << "Mat name: " << mat_name << endl;
+            vec3 col = (*material_map)[mat_name];
+            pair<int, int> range = (*material_ranges)[i];
+            temp_mats.push_back({range, col});
+        }
+    }
+    if (temp_mats.size() > 0 && objFile != "")
+    {
+        asset_material_map[objFile] = temp_mats;
+    }
 }
 
 void A5::initializeNodes(SceneNode &node)
 {
     int id = node.m_nodeId;
     nodes[id] = &node;
-    if (node.m_name == "head")
-    {
-        headNode = &node;
-    }
     initial_positions[id] = vec3(node.get_transform()[3]);
     initial_transforms[id] = node.trans;
+    if (node.m_name == "Assets/luffy.obj")
+    {
+        // also rework to add joint node as parent of luffy and onigashima
+        // get bounding box for bottom calculation
+        vec3 bottom = vec3(node.trans * vec4(0.0f, 0.0f, 0.0f, 1.0f));
+        bounce_spline.setUpSpline(6.0f, bottom, 90.0);
+    }
     for (SceneNode *child : node.children)
     {
         initializeNodes(*child);
@@ -203,8 +230,8 @@ void A5::createShaderProgram()
 {
 
     m_shader.generateProgramObject();
-    m_shader.attachVertexShader(getAssetFilePath("Phong.vs").c_str());
-    m_shader.attachFragmentShader(getAssetFilePath("Phong.fs").c_str());
+    m_shader.attachVertexShader(getAssetFilePath("toon.vs").c_str());
+    m_shader.attachFragmentShader(getAssetFilePath("toon.fs").c_str());
     m_shader.link();
 
     m_particle_shader.generateProgramObject();
@@ -308,8 +335,7 @@ void A5::initViewMatrix()
 //----------------------------------------------------------------------------------------
 void A5::initLightSources()
 {
-    // World-space position
-    // m_light.position = vec3(10.0f, 10.0f, 10.0f);
+    // Camera-space position
     m_light.position = vec3(-2.0f, 0.0f, 0.5f);
 
     // m_light.rgbIntensity = vec3(0.0f); // light
@@ -332,12 +358,11 @@ void A5::uploadCommonSceneUniforms()
             glUniform3fv(location, 1, value_ptr(m_light.position));
             location = m_shader.getUniformLocation("light.rgbIntensity");
             glUniform3fv(location, 1, value_ptr(m_light.rgbIntensity));
-            CHECK_GL_ERRORS;
 
-            //-- Set background light ambient intensity
-            location = m_shader.getUniformLocation("ambientIntensity");
-            vec3 ambientIntensity(0.05f);
-            glUniform3fv(location, 1, value_ptr(ambientIntensity));
+            // --Set background light ambient intensity
+            // location = m_shader.getUniformLocation("ambientIntensity");
+            // vec3 ambientIntensity = vec3(0.5f, 0.5f, 0.5f);
+            // glUniform3fv(location, 1, value_ptr(ambientIntensity));
             CHECK_GL_ERRORS;
         }
     }
@@ -355,6 +380,24 @@ void A5::appLogic()
     lastTime = glfwGetTime();
 
     uploadCommonSceneUniforms();
+    if (is_moving_up)
+    {
+        spline_time += float(delta_time);
+        if (spline_time >= 1.0f)
+        {
+            spline_time = 1.0f;
+            is_moving_up = false;
+        }
+    }
+    else
+    {
+        spline_time -= float(delta_time);
+        if (spline_time <= 0.0f)
+        {
+            spline_time = 0.0f;
+            is_moving_up = true;
+        }
+    }
 }
 
 //----------------------------------------------------------------------------------------
@@ -414,12 +457,12 @@ void updateShaderUniforms(
     shader.enable();
     {
         //-- Set ModelView matrix:
-        GLint location = shader.getUniformLocation("ModelView");
-        mat4 modelView = viewMatrix * trans;
-        glUniformMatrix4fv(location, 1, GL_FALSE, value_ptr(modelView));
-        CHECK_GL_ERRORS;
-
         {
+            GLint location = shader.getUniformLocation("ModelView");
+            mat4 modelView = viewMatrix * trans;
+            glUniformMatrix4fv(location, 1, GL_FALSE, value_ptr(modelView));
+            CHECK_GL_ERRORS;
+
             //-- Set NormMatrix:
             location = shader.getUniformLocation("NormalMatrix");
             mat3 normalMatrix = glm::transpose(glm::inverse(mat3(modelView)));
@@ -427,13 +470,13 @@ void updateShaderUniforms(
             CHECK_GL_ERRORS;
 
             //-- Set Material values:
-            location = shader.getUniformLocation("material.kd");
-            vec3 kd = node.material.kd;
-            if (parent_joint_selected)
-            {
-                kd = vec3(1.0f, 1.0f, 0.0f);
-            }
-            glUniform3fv(location, 1, value_ptr(kd));
+            // location = shader.getUniformLocation("material.kd");
+            // vec3 kd = node.material.kd;
+            // if (parent_joint_selected)
+            // {
+            //     kd = vec3(1.0f, 1.0f, 0.0f);
+            // }
+            // glUniform3fv(location, 1, value_ptr(kd));
             CHECK_GL_ERRORS;
         }
     }
@@ -448,15 +491,15 @@ void A5::draw()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     {
-        // glEnable(GL_DEPTH_TEST);
+        glEnable(GL_DEPTH_TEST);
     }
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // set background color
+    glClearColor(0.11, 0.21, 0.72, 1.0);
     // Bind the VAO once here, and reuse for all GeometryNode rendering below.
     {
-        // glBindVertexArray(m_vao_meshData);
-        // renderSceneGraph(*m_rootNode);
-        // glBindVertexArray(0);
+        glBindVertexArray(m_vao_meshData);
+        renderSceneGraph(*m_rootNode);
+        glBindVertexArray(0);
     }
     {
         m_view_proj = m_perpsective * m_view; // find a better place to put this
@@ -472,10 +515,10 @@ void A5::draw()
                 particle_data.EmitParticle(p_sys);
             }
         }
-        if (clouds_enabled)
+        if (clouds_enabled && iter++ % 200 == 0)
         {
             // generate a set of particles around circle
-            int num_points = 8;
+            int num_points = 64;
             // use similar logic for rotating camera around object by updating its position based on circle
             for (int i = 0; i < num_points; ++i)
             {
@@ -485,16 +528,17 @@ void A5::draw()
                 p_clouds.m_position = vec3(island_transform * vec4(x, -0.1f, z, 1.0f));
                 for (int j = 0; j < 1; ++j)
                 {
-                    // cout << "EMMITING CLOUDS" << endl;
                     clouds_data.EmitParticle(p_clouds);
-                    cout << "clouds pos: " << p_clouds.m_position << endl;
                 }
             }
-            clouds_enabled = false;
         }
 
         // particle_data.DrawParticles();
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         clouds_data.DrawParticles();
+        glDisable(GL_BLEND);
+
         CHECK_GL_ERRORS;
     }
 }
@@ -517,7 +561,7 @@ void A5::renderSceneGraph(const SceneNode &root)
 
 void A5::processSceneNode(SceneNode &node, glm::mat4 parentTransform)
 {
-    // 	cout << "node name: " << node.m_name << ", ID: " << node.m_nodeId << endl;
+    // cout << "node name: " << node.m_name << ", ID: " << node.m_nodeId << endl;
     if (node.m_nodeType == NodeType::GeometryNode)
     {
         GeometryNode *geometryNode = (GeometryNode *)&node;
@@ -537,23 +581,39 @@ void A5::processSceneNode(SceneNode &node, glm::mat4 parentTransform)
 
 void A5::renderGeometryNode(GeometryNode &node, mat4 parentTransform)
 {
+    mat4 node_trans = node.trans;
+    if (node.m_name == "Assets/luffy.obj")
+    {
+        vec3 pos = bounce_spline.getPos(spline_time);
+        float rotation_angle = bounce_spline.getRotation(spline_time);
+        // node_trans = glm::translate(node_trans, pos);
+        // node_trans = glm::rotate(node_trans, (radians)(rotation_angle), vec3(1.0f, 0.0f, 0.0f));
+    }
     SceneNode *parent = node.parent;
     updateShaderUniforms(m_shader,
                          node,
                          m_view,
-                         parentTransform * node.trans,
+                         parentTransform * node_trans,
                          (parent->m_nodeType == NodeType::JointNode && selected[parent->m_nodeId]));
 
-    // // Get the BatchInfo corresponding to the GeometryNode's unique MeshId.
-    // cout << "node, meshId: " << node.meshId << endl;
-    // cout << "node.name: " << node.m_name << endl;
-    // cout << "transform: " << trans << endl;
-    // cout << endl;
     BatchInfo batchInfo = m_batchInfoMap.at(node.meshId);
 
     //-- Now render the mesh:
     m_shader.enable();
-    glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
+    {
+        string key = "./" + node.m_name;
+        vector<pair<pair<int, int>, vec3>>
+            mats = asset_material_map[key];
+        for (auto mat_pair : mats)
+        {
+            pair<int, int> range = mat_pair.first;
+            vec3 col = mat_pair.second;
+            GLint location = m_shader.getUniformLocation("color");
+            glUniform3fv(location, 1, value_ptr(col));
+            glDrawArrays(GL_TRIANGLES, batchInfo.startIndex + range.first, range.second - range.first + 1);
+        }
+    }
+    // glDrawArrays(GL_TRIANGLES, batchInfo.startIndex, batchInfo.numIndices);
     m_shader.disable();
 
     for (SceneNode *child : node.children)

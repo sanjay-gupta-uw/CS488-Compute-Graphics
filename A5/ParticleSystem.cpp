@@ -59,13 +59,13 @@ void ParticleSystem::InitParticleSystem(ShaderProgram &shader)
     VP_location = m_shader.getUniformLocation("VP");
 
     // setup square vert
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
-    glVertexAttribDivisor(0, 0);
-
     glGenBuffers(1, &square_model_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, square_model_vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void *)0);
+    glVertexAttribDivisor(0, 0);
 
     // setup vbo
     glGenBuffers(1, &instance_transform_vbo);
@@ -80,99 +80,86 @@ void ParticleSystem::InitParticleSystem(ShaderProgram &shader)
     }
 
     // set up sprite index vbo
-    // glGenBuffers(1, &instance_sprite_vbo);
-    // glBindBuffer(GL_ARRAY_BUFFER, instance_sprite_vbo);
-    // glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(int), nullptr, GL_STREAM_DRAW);
-    // glEnableVertexAttribArray(5);
-    // glVertexAttribIPointer(5, 1, GL_INT, 0, (void *)0);
-    // glVertexAttribDivisor(5, 1);
+    glGenBuffers(1, &instance_sprite_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, instance_sprite_vbo);
+    glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(int), nullptr, GL_STREAM_DRAW);
+    glEnableVertexAttribArray(5);
+    glVertexAttribIPointer(5, 1, GL_INT, 0, (void *)0);
+    glVertexAttribDivisor(5, 1);
 
-    ///////
+    /////
     // Load the texture
-    // {
+    {
 
-    //     int width,
-    //         height, nrChannels;
-    //     unsigned char *data = stbi_load("./Assets/cloud_texture-0.png", &width, &height, &nrChannels, 0);
-    //     if (!data)
-    //     {
-    //         std::cerr << "Failed to load texture" << std::endl;
-    //         return;
-    //     }
+        int width,
+            height, nrChannels;
+        unsigned char *data = stbi_load("./Assets/cloud_texture-0.png", &width, &height, &nrChannels, 0);
+        if (!data)
+        {
+            std::cerr << "Failed to load texture" << std::endl;
+            return;
+        }
 
-    //     glGenTextures(1, &texture_atlas_id);
-    //     glBindTexture(GL_TEXTURE_2D, texture_atlas_id);
+        glGenTextures(1, &texture_atlas_id);
+        glBindTexture(GL_TEXTURE_2D, texture_atlas_id);
 
-    //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    //     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    //     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    //     glGenerateMipmap(GL_TEXTURE_2D);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
 
-    //     stbi_image_free(data);
+        stbi_image_free(data);
 
-    //     // bind image aswell
+        // bind image aswell
 
-    //     ////////
-    //     // parse json
-    //     std::ifstream i("./Assets/cloud_data-0.json");
-    //     nlohmann::json j;
-    //     i >> j;
+        ////////
+        // parse json
+        std::ifstream i("./Assets/cloud_data-0.json");
+        nlohmann::json j;
+        i >> j;
 
-    //     int spriteSheetWidth = j["meta"]["size"]["w"];
-    //     int spriteSheetHeight = j["meta"]["size"]["h"];
+        int spriteSheetWidth = j["meta"]["size"]["w"];
+        int spriteSheetHeight = j["meta"]["size"]["h"];
 
-    //     for (const auto &frame : j["frames"])
-    //     {
-    //         SpriteData sprite;
-    //         sprite.filename = frame["filename"];
-    //         int x = frame["frame"]["x"];
-    //         int y = frame["frame"]["y"];
-    //         int w = frame["frame"]["w"];
-    //         int h = frame["frame"]["h"];
-    //         sprite.rotated = frame["rotated"];
+        for (const auto &frame : j["frames"])
+        {
+            SpriteData sprite;
+            sprite.filename = frame["filename"];
+            int x = frame["frame"]["x"];
+            int y = frame["frame"]["y"];
+            int w = frame["frame"]["w"];
+            int h = frame["frame"]["h"];
+            sprite.rotated = frame["rotated"];
 
-    //         if (sprite.rotated)
-    //         {
-    //             // Swap the width and height for UV calculation if rotated
-    //             std::swap(w, h);
-    //             // The sprite is rotated, so the UVs need to be adjusted.
-    //             sprite.uv_x = x / (float)spriteSheetWidth;
-    //             sprite.uv_y = (y + w) / (float)spriteSheetHeight; // Notice w is added to y due to rotation
-    //             sprite.uv_w = h / (float)spriteSheetWidth;
-    //             sprite.uv_h = w / (float)spriteSheetHeight; // Use w here, since we swapped w and h earlier
-    //         }
-    //         else
-    //         {
-    //             // Calculate UVs normally if not rotated
-    //             sprite.uv_x = x / (float)spriteSheetWidth;
-    //             sprite.uv_y = y / (float)spriteSheetHeight;
-    //             sprite.uv_w = w / (float)spriteSheetWidth;
-    //             sprite.uv_h = h / (float)spriteSheetHeight;
-    //         }
+            // Calculate UVs normally if not rotated
+            sprite.uv_x = x / (float)spriteSheetWidth;
+            sprite.uv_y = y / (float)spriteSheetHeight;
+            sprite.uv_w = w / (float)spriteSheetWidth;
+            sprite.uv_h = h / (float)spriteSheetHeight;
 
-    //         // Add sprite data to the vector
-    //         sprites.push_back(sprite);
-    //     }
+            // Add sprite data to the vector
+            sprites.push_back(sprite);
+        }
 
-    //     std::vector<glm::vec4> sprite_uvs;
-    //     for (auto &sprite : sprites)
-    //     {
-    //         sprite_uvs.push_back(glm::vec4(sprite.uv_x, sprite.uv_y, sprite.uv_w, sprite.uv_h));
-    //     }
-    //     ///////
-    //     // setup sprite uv vbo
-    //     GLuint sprite_uvs_vbo;
-    //     glGenBuffers(1, &sprite_uvs_vbo);
-    //     glBindBuffer(GL_ARRAY_BUFFER, sprite_uvs_vbo);
-    //     glBufferData(GL_ARRAY_BUFFER, sprite_uvs.size() * sizeof(glm::vec4), sprite_uvs.data(), GL_STATIC_DRAW);
+        std::vector<glm::vec4> sprite_uvs;
+        for (auto &sprite : sprites)
+        {
+            sprite_uvs.push_back(glm::vec4(sprite.uv_x, sprite.uv_y, sprite.uv_w, sprite.uv_h));
+        }
+        ///////
+        // setup sprite uv vbo
+        GLuint sprite_uvs_vbo;
+        glGenBuffers(1, &sprite_uvs_vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, sprite_uvs_vbo);
+        glBufferData(GL_ARRAY_BUFFER, sprite_uvs.size() * sizeof(glm::vec4), sprite_uvs.data(), GL_STATIC_DRAW);
 
-    //     glGenTextures(1, &sprite_uvs_texture);
-    //     glBindTexture(GL_TEXTURE_2D, sprite_uvs_texture);
-    //     glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, sprite_uvs_vbo);
-    // }
+        glGenTextures(1, &sprite_uvs_texture);
+        glBindTexture(GL_TEXTURE_2D, sprite_uvs_texture);
+        glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, sprite_uvs_vbo);
+    }
 
     m_shader.disable();
 
@@ -198,10 +185,11 @@ void ParticleSystem::EmitParticle(ParticleAttribs attribs)
     particle.m_color_start = attribs.m_color_start;
     particle.m_color_end = attribs.m_color_end;
 
-    particle.life_time = 1.0f;
+    particle.life_time = 4.0f;
+    // particle.life_time = 1.0f;
     particle.life_remaining = particle.life_time;
 
-    particle.size_begin = attribs.size_begin + attribs.size_variation * (distr(eng) - 0.5f);
+    particle.size_begin = attribs.size_begin; // + attribs.size_variation * (distr(eng) - 0.5f);
     particle.size_end = attribs.size_end;
 
     particle.alive = true;
@@ -243,7 +231,7 @@ void ParticleSystem::UpdateParticles(float elapsed_time, const mat4 &view_projec
         particle.size = glm::lerp(particle.size_end, particle.size_begin, life_factor);
         particle.color = glm::lerp(particle.m_color_end, particle.m_color_start, life_factor);
         particle.update_transform();
-        particle.sprite_index = int(particle.life_remaining);
+        particle.sprite_index = int(9.0f * (1.0f - life_factor));
     }
 
     m_view_projection = view_projection;
@@ -260,13 +248,13 @@ void ParticleSystem::DrawParticles()
     glBindVertexArray(particle_system_vao);
 
     std::vector<glm::mat4> transforms;
-    // std::vector<int> sprite_indices;
+    std::vector<int> sprite_indices;
     for (int index : active_particles)
     {
         Particle &particle = m_particles[index];
 
         transforms.push_back(particle.transform);
-        // sprite_indices.push_back(particle.sprite_index);
+        sprite_indices.push_back(particle.sprite_index);
 
         // std::cout << "position: " << particle.m_position << std::endl;
     }
@@ -274,19 +262,19 @@ void ParticleSystem::DrawParticles()
     glBindBuffer(GL_ARRAY_BUFFER, instance_transform_vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, transforms.size() * sizeof(glm::mat4), transforms.data());
 
-    // glBindBuffer(GL_ARRAY_BUFFER, instance_sprite_vbo);
-    // glBufferSubData(GL_ARRAY_BUFFER, 0, sprite_indices.size() * sizeof(int), sprite_indices.data());
+    glBindBuffer(GL_ARRAY_BUFFER, instance_sprite_vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sprite_indices.size() * sizeof(int), sprite_indices.data());
 
     glUniformMatrix4fv(VP_location, 1, GL_FALSE, &m_view_projection[0][0]);
 
-    // glActiveTexture(GL_TEXTURE0);
-    // glBindTexture(GL_TEXTURE_2D, texture_atlas_id);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture_atlas_id);
 
-    // glActiveTexture(GL_TEXTURE1);
-    // glBindTexture(GL_TEXTURE_2D, sprite_uvs_texture);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, sprite_uvs_texture);
 
-    // glUniform1i(glGetUniformLocation(m_shader.getProgramObject(), "SpriteAtlas"), 0);
-    // glUniform1i(glGetUniformLocation(m_shader.getProgramObject(), "SpriteUVS"), 1);
+    glUniform1i(glGetUniformLocation(m_shader.getProgramObject(), "SpriteAtlas"), 0);
+    glUniform1i(glGetUniformLocation(m_shader.getProgramObject(), "SpriteUVS"), 1);
 
     CHECK_GL_ERRORS;
 

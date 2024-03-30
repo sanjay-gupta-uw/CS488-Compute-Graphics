@@ -85,6 +85,6 @@ private:
 
     std::vector<SpriteData> sprites;
 
-    // void UpdateVBOs();
+    void UpdateVBOs();
     glm::vec3 GetCircularVelocity(Particle &particle);
 };

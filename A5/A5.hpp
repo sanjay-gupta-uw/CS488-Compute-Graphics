@@ -14,6 +14,8 @@
 #include <glm/glm.hpp>
 #include <memory>
 #include "ParticleSystem.hpp"
+#include "HermiteSpline.hpp"
+#include <unordered_map>
 
 struct LightSource
 {
@@ -83,7 +85,6 @@ protected:
     std::string m_luaSceneFile;
 
     std::shared_ptr<SceneNode> m_rootNode;
-    SceneNode *headNode = nullptr;
     std::vector<bool> selected;
     void initializeNodes(SceneNode &node);
     std::vector<SceneNode *> nodes;
@@ -93,6 +94,16 @@ protected:
     std::vector<glm::mat4> initial_transforms;
     std::vector<glm::mat4> initial_transforms_unscaled;
 
+    std::vector<std::string> *material_list;
+    std::vector<std::pair<int, int>> *material_ranges;
+    // mapping for each material file
+    std::unordered_map<std::string, glm::vec3> *material_map;
+
+    void initMaterialList();
+
+    // asset to material mapping, vector contains the colouring for each face
+    std::unordered_map<std::string, std::vector<std::pair<std::pair<int, int>, glm::vec3>>> asset_material_map;
+
     // particle system
     ParticleSystem particle_data;
     bool particle_system_enabled;
@@ -101,4 +112,10 @@ protected:
     bool clouds_enabled;
 
     double delta_time;
+    glm::vec3 light_cspace;
+
+    // spline
+    HermiteSpline bounce_spline;
+    float spline_time;
+    bool is_moving_up;
 };
