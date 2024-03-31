@@ -1,11 +1,8 @@
 #include "ParticleSystem.hpp"
 #include <iostream>
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-#include "json.hpp"
-#include <fstream>
 
 using namespace glm;
+using namespace std;
 
 static const GLfloat g_vertex_buffer_data[] = {-0.5f, -0.5f,
                                                0.5f, -0.5f,
@@ -15,25 +12,21 @@ static const GLfloat g_vertex_buffer_data[] = {-0.5f, -0.5f,
 static std::random_device rd;  // Obtain a random number from hardware
 static std::mt19937 eng(rd()); // Seed the generator
 static std::uniform_real_distribution<> distr(0.0f, 1.0f);
-
-vec3 ParticleSystem::GetCircularVelocity(Particle &particle)
-{
-    vec3 to_center = center_of_rotation - particle.m_position;
-    to_center.y = 0.0f;
-
-    float distance = glm::length(to_center);
-    vec3 tangent = glm::normalize(glm::cross(to_center, vec3(0.0f, 1.0f, 0.0f)));
-
-    vec3 velocity = tangent * particle.velocity;
-    return velocity;
-}
+static float size_end = 0.1f;
+static vec3 color_end = vec3(0.1f, 0.1f, 0.1f);
+static const float RING_DENSIY = 4.0f;
+static float VELOCITY_CONTROL;
+static uint NUM_EMITTERS = 0;
+static vec3 explosion_position;
+static const vec3 world_up = vec3(0.0f, 1.0f, 0.0f);
 
 ParticleSystem::ParticleSystem()
 {
     m_particles.resize(MAX_PARTICLES);
     for (uint32_t i = 0; i < MAX_PARTICLES; ++i)
     {
-        available_particles.push_back(i);
+        m_particles[i].index = i;
+        available_particles.push(i);
     }
     particle_count = 0;
 }
@@ -42,21 +35,24 @@ ParticleSystem::~ParticleSystem()
 {
     glDeleteBuffers(1, &square_model_vbo);
     glDeleteBuffers(1, &instance_transform_vbo);
-    // glDeleteBuffers(1, &instance_sprite_vbo);
     glDeleteVertexArrays(1, &particle_system_vao);
     CHECK_GL_ERRORS;
 }
 
-void ParticleSystem::InitParticleSystem(ShaderProgram &shader)
+void ParticleSystem::InitParticleSystem(ShaderProgram &shader, vec3 explosion_origin, float velocity_control, vec3 bg_colour)
 {
-
+    VELOCITY_CONTROL = velocity_control;
+    explosion_position = explosion_origin;
     m_shader = shader;
+
     m_shader.enable();
     // setup vao
     glGenVertexArrays(1, &particle_system_vao);
     glBindVertexArray(particle_system_vao);
 
     VP_location = m_shader.getUniformLocation("VP");
+
+    glUniform3fv(m_shader.getUniformLocation("backgroundColor"), 1, &bg_colour[0]);
 
     // setup square vert
     glGenBuffers(1, &square_model_vbo);
@@ -79,167 +75,198 @@ void ParticleSystem::InitParticleSystem(ShaderProgram &shader)
         glVertexAttribDivisor(i + 1, 1);
     }
 
-    // set up sprite index vbo
-    glGenBuffers(1, &instance_sprite_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, instance_sprite_vbo);
-    glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(int), nullptr, GL_STREAM_DRAW);
+    // color attrib
+    glGenBuffers(1, &instance_color_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, instance_color_vbo);
+    glBufferData(GL_ARRAY_BUFFER, MAX_PARTICLES * sizeof(glm::vec4), nullptr, GL_STREAM_DRAW);
+
     glEnableVertexAttribArray(5);
-    glVertexAttribIPointer(5, 1, GL_INT, 0, (void *)0);
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(vec4), (void *)0);
     glVertexAttribDivisor(5, 1);
 
-    /////
-    // Load the texture
-    {
-
-        int width,
-            height, nrChannels;
-        unsigned char *data = stbi_load("./Assets/cloud_texture-0.png", &width, &height, &nrChannels, 0);
-        if (!data)
-        {
-            std::cerr << "Failed to load texture" << std::endl;
-            return;
-        }
-
-        glGenTextures(1, &texture_atlas_id);
-        glBindTexture(GL_TEXTURE_2D, texture_atlas_id);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-
-        stbi_image_free(data);
-
-        // bind image aswell
-
-        ////////
-        // parse json
-        std::ifstream i("./Assets/cloud_data-0.json");
-        nlohmann::json j;
-        i >> j;
-
-        int spriteSheetWidth = j["meta"]["size"]["w"];
-        int spriteSheetHeight = j["meta"]["size"]["h"];
-
-        for (const auto &frame : j["frames"])
-        {
-            SpriteData sprite;
-            sprite.filename = frame["filename"];
-            int x = frame["frame"]["x"];
-            int y = frame["frame"]["y"];
-            int w = frame["frame"]["w"];
-            int h = frame["frame"]["h"];
-            sprite.rotated = frame["rotated"];
-
-            // Calculate UVs normally if not rotated
-            sprite.uv_x = x / (float)spriteSheetWidth;
-            sprite.uv_y = y / (float)spriteSheetHeight;
-            sprite.uv_w = w / (float)spriteSheetWidth;
-            sprite.uv_h = h / (float)spriteSheetHeight;
-
-            // Add sprite data to the vector
-            sprites.push_back(sprite);
-        }
-
-        std::vector<glm::vec4> sprite_uvs;
-        for (auto &sprite : sprites)
-        {
-            sprite_uvs.push_back(glm::vec4(sprite.uv_x, sprite.uv_y, sprite.uv_w, sprite.uv_h));
-        }
-        ///////
-        // setup sprite uv vbo
-        GLuint sprite_uvs_vbo;
-        glGenBuffers(1, &sprite_uvs_vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, sprite_uvs_vbo);
-        glBufferData(GL_ARRAY_BUFFER, sprite_uvs.size() * sizeof(glm::vec4), sprite_uvs.data(), GL_STATIC_DRAW);
-
-        glGenTextures(1, &sprite_uvs_texture);
-        glBindTexture(GL_TEXTURE_2D, sprite_uvs_texture);
-        glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, sprite_uvs_vbo);
-    }
-
-    m_shader.disable();
+    m_shader.disable(); // this is causing an error
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     CHECK_GL_ERRORS;
 }
 
-void ParticleSystem::EmitParticle(ParticleAttribs attribs)
+void ParticleSystem::UpdateParticles(const vec3 camera_pos, const mat4 &view_projection, const mat4 &view)
+{
+    // sort first
+    this->camera_pos = camera_pos;
+    m_view_projection = view_projection;
+    for (auto it = active_particles.begin(); it != active_particles.end();)
+    {
+        Particle &particle = m_particles[it->index];
+        if (particle.frames_remaining <= 0)
+        {
+            NUM_EMITTERS--;
+            available_particles.push(it->index);
+            particle.children.clear();
+            it = active_particles.erase(it); // Erase returns the iterator following the last removed element
+            continue;
+        }
+        break; // Since the set is ordered, no need to check further
+    }
+    for (auto it = active_particles.begin(); it != active_particles.end(); ++it)
+    {
+        Particle &particle = m_particles[it->index];
+        uint parent_idx = particle.index;
+        // cout << "children size: " << particle.children.size() << endl;
+        UpdateData(parent_idx, parent_idx);
+        for (uint child : particle.children)
+        {
+            UpdateData(child, parent_idx);
+        }
+        // cout << "children size: " << m_particles[parent_idx].children.size() << endl;
+    }
+}
+
+void ParticleSystem::UpdateData(uint index, uint parent_index)
+{
+    Particle &particle = m_particles[index];
+    particle.frames_remaining -= 1;
+    particle.position += particle.velocity;
+
+    float life_factor = float(particle.frames_remaining) / float(particle.life_frames);
+    particle.size = glm::lerp(size_end, particle.size_begin, life_factor);
+    particle.color = glm::lerp(particle.color_end, particle.color_begin, life_factor);
+    particle.alpha = glm::lerp(0.3f, particle.alpha, life_factor);
+
+    if (parent_index == index && particle.frames_remaining % 10 == 0)
+    {
+        cout << "EMMITING PARTICLES" << endl;
+        ParticleAttribs attrib = {};
+        attrib.velocity = particle.velocity;
+        attrib.size_begin = particle.size_begin;
+        attrib.size = particle.size;
+        attrib.color_begin = particle.color_begin;
+        attrib.color = particle.color;
+        attrib.color_end = particle.color_end;
+        attrib.alpha = particle.alpha;
+        attrib.creation_time = particle.creation_time;
+        attrib.parent_index = parent_index;
+
+        glm::vec3 direction = particle.position - explosion_position;
+        float radius = glm::length(direction);
+        float initial_angle = atan2(direction.z, direction.x);
+
+        int ring_count = NUM_EMITTERS;
+        if (!particle.children.empty())
+        {
+            ring_count *= particle.children.size();
+        }
+        // cout << "Radius " << radius << " Ring count " << ring_count << endl;
+        const int EMISSION_RATE = floor(RING_DENSIY * 2.0f * glm::pi<float>() * radius / float(ring_count));
+        const float angle_step = 2 * glm::pi<float>() / EMISSION_RATE;
+        // cout << "Emission rate: " << EMISSION_RATE << endl;
+
+        for (int i = 0; i < EMISSION_RATE; ++i)
+        {
+            float angle = initial_angle + i * angle_step;
+            glm::vec3 offset = glm::vec3(cos(angle) * radius, 0.0f, sin(angle) * radius);
+            glm::vec3 emit_pos = explosion_position + offset;
+            // cout << "Emit pos: " << emit_pos.x << " " << emit_pos.y << " " << emit_pos.z << endl;
+            attrib.position = emit_pos;
+            // UPDATE VELOCITY TO SPREAD PARTICLES UP/OUT
+            // cout << "Explosion pos: " << explosion_position.x << " " << explosion_position.y << " " << explosion_position.z << endl;
+            attrib.velocity = glm::normalize(emit_pos - explosion_position) * VELOCITY_CONTROL; // velocity magnitude
+            attrib.velocity.y = 0.5f;                                                           // upwards velocity
+            EmitParticle(attrib, false);
+        }
+    }
+
+    // update rotation
+    vec3 forward = normalize(particle.position - camera_pos);
+    vec3 right = cross(world_up, forward);
+    vec3 up = cross(forward, right);
+
+    particle.rotation = glm::mat4(1.0f);
+    particle.rotation[0] = vec4(right, 0.0f);
+    particle.rotation[1] = vec4(up, 0.0f);
+    particle.rotation[2] = vec4(forward, 0.0f);
+
+    // // cout << "updating transform for index: " << index << endl;
+    particle.update_transform();
+    // // cout << "transform: " << particle.transform << endl;
+}
+
+static vec3 random_vec3()
+{
+    return vec3(distr(eng) - 0.5f, distr(eng) - 0.5f, distr(eng) - 0.5f);
+}
+
+void ParticleSystem::EmitParticle(ParticleAttribs attribs, bool isEmitter)
 {
     if (available_particles.empty())
     {
         return;
     }
     int particle_index = available_particles.front();
-    available_particles.pop_front();
+    available_particles.pop();
 
     Particle &particle = m_particles[particle_index];
-    particle.m_position = attribs.m_position;
-    particle.velocity = attribs.velocity;
-    particle.velocity_variation = attribs.velocity_variation;
-    particle.angle = distr(eng) * 2.0f * glm::pi<float>();
-    particle.m_color_start = attribs.m_color_start;
-    particle.m_color_end = attribs.m_color_end;
+    particle.position = min(attribs.position, vec3(15, 15, 15)) + random_vec3();
+    if (!isEmitter)
+    {
+        // cout << "pos': " << particle.position.x << " " << particle.position.y << " " << particle.position.z << endl;
+        // exit(0);
+    }
+    particle.velocity = attribs.velocity + random_vec3();
 
-    particle.life_time = 4.0f;
-    // particle.life_time = 1.0f;
-    particle.life_remaining = particle.life_time;
+    particle.size_begin = attribs.size_begin;   // + distr(eng) - 0.5f;
+    particle.size = attribs.size;               // + distr(eng) - 0.5f;
+    particle.color_begin = attribs.color_begin; // + random_vec3();
+    particle.color = attribs.color;             // + random_vec3();
+    particle.color_end = attribs.color_end;     // + random_vec3();
+    particle.alpha = attribs.alpha;             // + distr(eng) - 0.5f;
+    particle.isEmitter = isEmitter;
 
-    particle.size_begin = attribs.size_begin; // + attribs.size_variation * (distr(eng) - 0.5f);
-    particle.size_end = attribs.size_end;
+    particle.life_frames = 100; // keep particle alive for 100 frames
+    particle.frames_remaining = particle.life_frames;
 
-    particle.alive = true;
-    active_particles.push_back(particle_index);
+    if (isEmitter)
+    {
+        NUM_EMITTERS++;
+        ParticleInfo pInfo(particle_index, attribs.creation_time);
+        active_particles.insert(pInfo);
+    }
+    else
+    {
+        m_particles[attribs.parent_index].children.push_back(particle_index);
+        // cout << "child index: " << particle_index << endl;
+    }
+    particle.update_transform();
     ++particle_count;
-}
-
-void ParticleSystem::UpdateParticles(float elapsed_time, const mat4 &view_projection)
-{
-    while (!active_particles.empty())
-    {
-        int index = active_particles.front();
-        Particle &particle = m_particles[index];
-        if (particle.life_remaining - elapsed_time <= 0.0f)
-        {
-            particle.alive = false;
-            particle.life_remaining = -1.0f;
-            available_particles.push_back(index);
-            active_particles.pop_front();
-            --particle_count;
-            continue;
-        }
-        break;
-    }
-    // now all particles in active are still alive
-    for (int index : active_particles)
-    {
-        Particle &particle = m_particles[index];
-        particle.life_remaining -= elapsed_time;
-
-        vec3 velocity = is_circle ? GetCircularVelocity(particle) : particle.velocity;
-        particle.m_position += (velocity + vec3(particle.velocity_variation.x * 100 * (distr(eng) - 0.5f),
-                                                particle.velocity_variation.y * 100 * (distr(eng) - 0.5f),
-                                                particle.velocity_variation.z * 100 * (distr(eng) - 0.5f))) *
-                               (float)elapsed_time;
-        particle.angle += 0.01f * elapsed_time;
-
-        float life_factor = particle.life_remaining / particle.life_time;
-        particle.size = glm::lerp(particle.size_end, particle.size_begin, life_factor);
-        particle.color = glm::lerp(particle.m_color_end, particle.m_color_start, life_factor);
-        particle.update_transform();
-        particle.sprite_index = int(9.0f * (1.0f - life_factor));
-    }
-
-    m_view_projection = view_projection;
 }
 
 void ParticleSystem::DrawParticles()
 {
-    if (active_particles.empty())
+
+    std::vector<glm::mat4> transforms;
+    std::vector<glm::vec4> colors;
+    for (auto pInfo : active_particles)
+    {
+        Particle &particle = m_particles[pInfo.index];
+        transforms.push_back(particle.transform);
+        colors.push_back(glm::vec4(particle.color, particle.alpha));
+
+        for (uint child_idx : particle.children)
+        {
+            Particle &c_particle = m_particles[child_idx];
+            vec3 particle_center_ws = vec3(c_particle.transform * vec4(0.0f, 0.0f, 0.0f, 1.0f));
+            // cout << "child pos: " << particle_center_ws.x << " " << particle_center_ws.y << " " << particle_center_ws.z << endl;
+            transforms.push_back(c_particle.transform);
+            colors.push_back(glm::vec4(c_particle.color, c_particle.alpha));
+        }
+        if (!particle.children.empty())
+        {
+            // exit(0);
+        }
+    }
+
+    if (transforms.empty())
     {
         return;
     }
@@ -247,43 +274,19 @@ void ParticleSystem::DrawParticles()
     m_shader.enable();
     glBindVertexArray(particle_system_vao);
 
-    std::vector<glm::mat4> transforms;
-    std::vector<int> sprite_indices;
-    for (int index : active_particles)
-    {
-        Particle &particle = m_particles[index];
-
-        transforms.push_back(particle.transform);
-        sprite_indices.push_back(particle.sprite_index);
-
-        // std::cout << "position: " << particle.m_position << std::endl;
-    }
-
     glBindBuffer(GL_ARRAY_BUFFER, instance_transform_vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, transforms.size() * sizeof(glm::mat4), transforms.data());
 
-    glBindBuffer(GL_ARRAY_BUFFER, instance_sprite_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sprite_indices.size() * sizeof(int), sprite_indices.data());
+    glBindBuffer(GL_ARRAY_BUFFER, instance_color_vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, colors.size() * sizeof(glm::vec4), colors.data());
 
     glUniformMatrix4fv(VP_location, 1, GL_FALSE, &m_view_projection[0][0]);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture_atlas_id);
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, sprite_uvs_texture);
-
-    glUniform1i(glGetUniformLocation(m_shader.getProgramObject(), "SpriteAtlas"), 0);
-    glUniform1i(glGetUniformLocation(m_shader.getProgramObject(), "SpriteUVS"), 1);
-
-    CHECK_GL_ERRORS;
-
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, particle_count);
-    CHECK_GL_ERRORS;
-
     m_shader.disable();
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     CHECK_GL_ERRORS;
+    // cout << "NUM EMITTERS: " << NUM_EMITTERS << endl;
 }

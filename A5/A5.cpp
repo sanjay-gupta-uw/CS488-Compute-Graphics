@@ -17,9 +17,9 @@ using namespace glm;
 
 static bool show_gui = true;
 
-static ParticleAttribs p_sys;
 static ParticleAttribs p_clouds;
 glm::mat4 island_transform;
+const vec3 bg_color = vec3(0.11, 0.21, 0.72);
 
 int iter = 0;
 
@@ -62,15 +62,12 @@ A5::~A5()
  */
 void A5::init()
 {
-    // camera_position = vec3(0.0f, 0.0f, 40.0f);
+    camera_position = vec3(0.0f, 0.0f, 40.0f);
     // camera_position = vec3(-60.0f, 40.0f, 40.0f);
-    camera_position = vec3(10, 5, 10);
+    // camera_position = vec3(10, 5, 10);
     // Set the background colour.
-    glClearColor(0.32, 0.34, 0.33, 1.0);
 
     createShaderProgram();
-    particle_data.InitParticleSystem(m_particle_shader);
-    clouds_data.InitParticleSystem(m_particle_shader);
 
     glGenVertexArrays(1, &m_vao_meshData);
     enableVertexShaderInputSlots();
@@ -105,7 +102,6 @@ void A5::init()
     initViewMatrix();
 
     initLightSources();
-
     node_count = m_rootNode->totalSceneNodes();
     selected.resize(node_count, false);
 
@@ -131,29 +127,22 @@ void A5::init()
     // VBOs on the GPU.  We have no use for storing vertex data on the CPU side beyond
     // this point.
 
-    p_sys.velocity = vec3(5.5, 0.1, 0.1);
-    p_sys.velocity_variation = vec3(0.1f, 0.1f, 0.1f);
-    p_sys.m_color_start = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    p_sys.m_color_end = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-    p_sys.size_begin = 0.05f;
-    p_sys.size_end = 0.001f;
-    p_sys.size_variation = 0.1f;
+    p_clouds.size_begin = 0.5f;
+    p_clouds.size = p_clouds.size_begin;
+    // p_clouds.color_begin = vec3(1.0f, 0.8f, 0.8f);
+    // p_clouds.color = vec3(1.0f, 0.8f, 0.8f);
+    // p_clouds.color_end = vec3(1.0f, 0.6f, 0.6f);
+    p_clouds.color_begin = vec3(1.0f, 0.0f, 0.0f);
+    p_clouds.color = p_clouds.color_begin;
+    p_clouds.color_end = vec3(1.0f, 1.0f, 0.0f);
+    p_clouds.alpha = 1.0f;
 
-    p_clouds.velocity = vec3(0.1, 0.1, 0.1);
-    p_clouds.velocity_variation = vec3(0.01f, 0.01f, 0.01f);
-    p_clouds.m_color_start = vec4(1.0f, 0.8f, 0.8f, 1.0f);
-    p_clouds.m_color_end = vec4(1.0f, 0.6f, 0.6f, 1.0f);
-    p_clouds.size_begin = 0.01f;
-    p_clouds.size_end = 3.0f;
-    p_clouds.size_variation = 0.1f;
-
-    clouds_data.is_circle = true;
-
-    particle_system_enabled = false;
     clouds_enabled = true;
 
     spline_time = 0.0f;
     is_moving_up = true;
+
+    clouds_data.InitParticleSystem(m_particle_shader, vec3(0.0f, -20.0, 0.0), 0.87f, bg_color);
 }
 
 void A5::initMaterialList()
@@ -494,7 +483,7 @@ void A5::draw()
         glEnable(GL_DEPTH_TEST);
     }
     // set background color
-    glClearColor(0.11, 0.21, 0.72, 1.0);
+    glClearColor(bg_color.x, bg_color.y, bg_color.z, 1.0f);
     // Bind the VAO once here, and reuse for all GeometryNode rendering below.
     {
         glBindVertexArray(m_vao_meshData);
@@ -503,37 +492,28 @@ void A5::draw()
     }
     {
         m_view_proj = m_perpsective * m_view; // find a better place to put this
-        // particle_data.UpdateParticles(float(delta_time), m_view_proj);
-        clouds_data.UpdateParticles(float(delta_time), m_view_proj);
+        clouds_data.UpdateParticles(camera_position, m_view_proj, m_view);
 
-        p_sys.m_position = left_hand_pos;
-        clouds_data.center_of_rotation = center_of_rotation;
-        if (particle_system_enabled)
-        {
-            for (int i = 0; i < 10; ++i)
-            {
-                particle_data.EmitParticle(p_sys);
-            }
-        }
-        if (clouds_enabled && iter++ % 200 == 0)
+        // if (iter++ % 6 == 0)
+        if (iter++ == 0)
         {
             // generate a set of particles around circle
-            int num_points = 64;
-            // use similar logic for rotating camera around object by updating its position based on circle
+            int num_points = 1;
             for (int i = 0; i < num_points; ++i)
             {
                 float angle = (2 * glm::pi<float>() / num_points) * i;
                 float x = cos(angle);
                 float z = sin(angle);
-                p_clouds.m_position = vec3(island_transform * vec4(x, -0.1f, z, 1.0f));
+                p_clouds.position = vec3(x, -20.0, z);
                 for (int j = 0; j < 1; ++j)
                 {
-                    clouds_data.EmitParticle(p_clouds);
+                    cout << "pos: " << p_clouds.position << endl;
+                    p_clouds.creation_time = glfwGetTime();
+                    clouds_data.EmitParticle(p_clouds, true);
                 }
             }
         }
 
-        // particle_data.DrawParticles();
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         clouds_data.DrawParticles();

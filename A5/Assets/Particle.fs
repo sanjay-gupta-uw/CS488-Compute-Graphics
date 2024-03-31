@@ -1,16 +1,12 @@
 #version 330 core
 
-flat in int SpriteIndex;
-in vec2 TexCoords;
+in vec4 frag_color;
+uniform vec3 backgroundColor;
 
 out vec4 FragColor;
 
-uniform samplerBuffer SpriteUVS;
-uniform sampler2D SpriteAtlas;
-
 void main()
 {
-    vec4 spriteInfo = texelFetch(SpriteUVS, SpriteIndex);
-    vec2 uv = TexCoords * spriteInfo.zw + spriteInfo.xy;
-    FragColor = texture(SpriteAtlas, uv);
+    float alpha = frag_color.w;
+    FragColor = vec4(frag_color.xyz * alpha + backgroundColor.xyz * (1.0 - alpha), 1.0);
 }
